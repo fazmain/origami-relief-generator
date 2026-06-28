@@ -191,6 +191,62 @@ export default function Home() {
     }
   };
 
+  const handleSaveProject = () => {
+    if (!gridData || !metadata) return;
+    const project = {
+      version: 1,
+      settings: { width, height, aspectRatio, minHeightMm, maxHeightMm, algorithm, heightLevels, heightGamma, brightness, contrast, saturation, resolutionMode, boxSizeMm, targetPieces },
+      metadata,
+      gridData,
+    };
+    const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "project.origami";
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
+
+  const handleLoadProject = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const project = JSON.parse(ev.target?.result as string);
+        if (!project.version || !project.gridData || !project.metadata) {
+          alert("Invalid .origami file");
+          return;
+        }
+        const s = project.settings || {};
+        if (s.width) setWidth(s.width);
+        if (s.height) setHeight(s.height);
+        if (s.aspectRatio) setAspectRatio(s.aspectRatio);
+        if (s.minHeightMm !== undefined) setMinHeightMm(s.minHeightMm);
+        if (s.maxHeightMm !== undefined) setMaxHeightMm(s.maxHeightMm);
+        if (s.algorithm) setAlgorithm(s.algorithm);
+        if (s.heightLevels !== undefined) setHeightLevels(s.heightLevels);
+        if (s.heightGamma !== undefined) setHeightGamma(s.heightGamma);
+        if (s.brightness !== undefined) setBrightness(s.brightness);
+        if (s.contrast !== undefined) setContrast(s.contrast);
+        if (s.saturation !== undefined) setSaturation(s.saturation);
+        if (s.resolutionMode) setResolutionMode(s.resolutionMode);
+        if (s.boxSizeMm !== undefined) setBoxSizeMm(s.boxSizeMm);
+        if (s.targetPieces !== undefined) setTargetPieces(s.targetPieces);
+        setGridData(project.gridData);
+        setMetadata(project.metadata);
+        setError("");
+      } catch {
+        alert("Failed to parse .origami file");
+      }
+    };
+    reader.readAsText(f);
+    e.target.value = "";
+  };
+
   const handleColorChange = (oldColor: string, newColor: string) => {
     if (!gridData || oldColor === newColor) return;
     setGridData(gridData.map((cell) =>
@@ -459,6 +515,20 @@ export default function Home() {
               {loading ? "Processing..." : "Generate 3D Grid"}
             </button>
           </form>
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleSaveProject}
+              disabled={!gridData}
+              className="flex-1 bg-white text-black border-2 border-black py-2 text-sm font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors disabled:opacity-40"
+            >
+              Save .origami
+            </button>
+            <label className="flex-1 text-center bg-white text-black border-2 border-black py-2 text-sm font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors cursor-pointer">
+              Load .origami
+              <input type="file" accept=".origami,.json" onChange={handleLoadProject} className="hidden" />
+            </label>
+          </div>
 
           {error && (
             <div className="p-4 border-2 border-red-500 text-red-700 bg-red-50 font-mono text-sm">
