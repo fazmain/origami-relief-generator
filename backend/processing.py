@@ -21,18 +21,18 @@ def get_depth_estimator():
 def rgb_to_hex(r, g, b):
     return f"#{int(r):02x}{int(g):02x}{int(b):02x}"
 
-def calculate_hex_slopes(depth_map, cx, cy, min_height, max_height, R, scale_x, scale_y):
+def calculate_hex_slopes(depth_map, cx, cy, min_height, max_height, R, scale_x, scale_y, height_gamma=1.0):
     h_img, w_img = depth_map.shape
-    
+
     D_c = depth_map[cy, cx]
     D_left = depth_map[cy, max(0, cx-1)]
     D_right = depth_map[cy, min(w_img-1, cx+1)]
     D_up = depth_map[max(0, cy-1), cx]
     D_down = depth_map[min(h_img-1, cy+1), cx]
-    
+
     def d_to_h(D):
         # D is 0-255, 255 is closest (highest), 0 is furthest (lowest)
-        return min_height + (D / 255.0) * (max_height - min_height)
+        return min_height + ((D / 255.0) ** height_gamma) * (max_height - min_height)
         
     H_c = d_to_h(D_c)
     
@@ -68,7 +68,7 @@ def get_neighbors(c, r, num_cols, num_rows):
             neighbors.append((nc, nr))
     return neighbors
 
-def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors=6, min_height_mm=10, max_height_mm=50, algorithm="depth", height_levels=0):
+def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors=6, min_height_mm=10, max_height_mm=50, algorithm="depth", height_levels=0, height_gamma=1.0):
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if img is None:
@@ -126,12 +126,12 @@ def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors
             
             if algorithm == "depth":
                 H_c, top_vertices_z, m_x, m_y = calculate_hex_slopes(
-                    depth_map, c, r, min_height_mm, max_height_mm, R, scale_x, scale_y
+                    depth_map, c, r, min_height_mm, max_height_mm, R, scale_x, scale_y, height_gamma
                 )
             else:
                 # Luminance algorithm
                 lum = depth_map[r, c]
-                H_c = min_height_mm + (lum / 255.0) * (max_height_mm - min_height_mm)
+                H_c = min_height_mm + ((lum / 255.0) ** height_gamma) * (max_height_mm - min_height_mm)
                 m_x = 0.0
                 m_y = 0.0
                 top_vertices_z = [round(H_c, 2)] * 6
@@ -415,5 +415,6 @@ def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors
             "min_height_mm": min_height_mm,
             "max_height_mm": max_height_mm,
             "height_levels": height_levels,
+            "height_gamma": height_gamma,
         }
     }

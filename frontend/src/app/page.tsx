@@ -18,6 +18,7 @@ interface Metadata {
   min_height_mm?: number;
   max_height_mm?: number;
   height_levels?: number;
+  height_gamma?: number;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -32,6 +33,7 @@ export default function Home() {
   
   const [algorithm, setAlgorithm] = useState<"depth" | "luminance">("depth");
   const [heightLevels, setHeightLevels] = useState<number>(0);
+  const [heightGamma, setHeightGamma] = useState<number>(1.0);
   
   const [resolutionMode, setResolutionMode] = useState<"size" | "count">("count");
   const [boxSizeMm, setBoxSizeMm] = useState<number>(15);
@@ -102,6 +104,7 @@ export default function Home() {
     formData.append("max_height_mm", maxHeightMm.toString());
     formData.append("algorithm", algorithm);
     formData.append("height_levels", heightLevels.toString());
+    formData.append("height_gamma", heightGamma.toString());
 
     try {
       const res = await fetch(`${API_URL}/api/process`, {
@@ -315,6 +318,23 @@ export default function Home() {
                   <span className="font-mono text-sm w-8 text-right">{heightLevels}</span>
                 </div>
               )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold uppercase mb-2">Height Curve (Gamma)</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="0.25" max="4.0" step="0.05"
+                  value={heightGamma}
+                  onChange={(e) => setHeightGamma(Number(e.target.value))}
+                  className="flex-1 accent-black"
+                />
+                <span className="font-mono text-sm w-10 text-right">{heightGamma.toFixed(2)}</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {heightGamma < 0.95 ? "Dark areas boosted (lift shadows)" : heightGamma > 1.05 ? "Bright areas boosted (emphasise peaks)" : "Linear mapping"}
+              </p>
             </div>
 
             <div>

@@ -222,3 +222,75 @@ class TestHeightQuantization:
         for cell in result["grid"]:
             for z in cell["top_vertices_z"]:
                 assert z >= 0.1
+
+
+class TestHeightGamma:
+    def test_gamma_gt_1_lowers_midtone_heights(self):
+        # mid-gray image — gamma>1 compresses heights toward min
+        img = make_image_bytes(color=(128, 128, 128), h=50, w=50)
+        r_linear = process_image(
+            image_bytes=img, width_mm=100.0, height_mm=100.0,
+            min_box_size_mm=20.0, k_colors=1,
+            min_height_mm=10.0, max_height_mm=50.0,
+            algorithm="luminance", height_gamma=1.0,
+        )
+        r_gamma = process_image(
+            image_bytes=img, width_mm=100.0, height_mm=100.0,
+            min_box_size_mm=20.0, k_colors=1,
+            min_height_mm=10.0, max_height_mm=50.0,
+            algorithm="luminance", height_gamma=2.0,
+        )
+        avg_linear = sum(c["height_mm"] for c in r_linear["grid"]) / len(r_linear["grid"])
+        avg_gamma = sum(c["height_mm"] for c in r_gamma["grid"]) / len(r_gamma["grid"])
+        assert avg_gamma < avg_linear
+
+    def test_gamma_lt_1_raises_midtone_heights(self):
+        img = make_image_bytes(color=(128, 128, 128), h=50, w=50)
+        r_linear = process_image(
+            image_bytes=img, width_mm=100.0, height_mm=100.0,
+            min_box_size_mm=20.0, k_colors=1,
+            min_height_mm=10.0, max_height_mm=50.0,
+            algorithm="luminance", height_gamma=1.0,
+        )
+        r_gamma = process_image(
+            image_bytes=img, width_mm=100.0, height_mm=100.0,
+            min_box_size_mm=20.0, k_colors=1,
+            min_height_mm=10.0, max_height_mm=50.0,
+            algorithm="luminance", height_gamma=0.5,
+        )
+        avg_linear = sum(c["height_mm"] for c in r_linear["grid"]) / len(r_linear["grid"])
+        avg_gamma = sum(c["height_mm"] for c in r_gamma["grid"]) / len(r_gamma["grid"])
+        assert avg_gamma > avg_linear
+
+    def test_white_image_unaffected_by_gamma(self):
+        img = make_image_bytes(color=(255, 255, 255), h=50, w=50)
+        for gamma in [0.5, 1.0, 2.0]:
+            r = process_image(
+                image_bytes=img, width_mm=100.0, height_mm=100.0,
+                min_box_size_mm=20.0, k_colors=1,
+                min_height_mm=10.0, max_height_mm=50.0,
+                algorithm="luminance", height_gamma=gamma,
+            )
+            for cell in r["grid"]:
+                assert cell["height_mm"] == pytest.approx(50.0, abs=1.0)
+
+    def test_black_image_unaffected_by_gamma(self):
+        img = make_image_bytes(color=(0, 0, 0), h=50, w=50)
+        for gamma in [0.5, 1.0, 2.0]:
+            r = process_image(
+                image_bytes=img, width_mm=100.0, height_mm=100.0,
+                min_box_size_mm=20.0, k_colors=1,
+                min_height_mm=10.0, max_height_mm=50.0,
+                algorithm="luminance", height_gamma=gamma,
+            )
+            for cell in r["grid"]:
+                assert cell["height_mm"] == pytest.approx(10.0, abs=2.0)
+
+    def test_metadata_reports_gamma(self):
+        r = process_image(
+            image_bytes=make_image_bytes(h=50, w=50), width_mm=100.0, height_mm=100.0,
+            min_box_size_mm=20.0, k_colors=2,
+            min_height_mm=10.0, max_height_mm=50.0,
+            algorithm="luminance", height_gamma=1.5,
+        )
+        assert r["metadata"]["height_gamma"] == pytest.approx(1.5)
