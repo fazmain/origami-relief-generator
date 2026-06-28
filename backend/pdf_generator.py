@@ -381,3 +381,77 @@ def generate_poster(grid_data, metadata, output_path="poster.pdf"):
 
     c.save()
     return output_path
+
+
+def generate_backboard(grid_data, metadata, output_path="backboard.pdf"):
+    """
+    Generate a 1:1 scale backboard gluing guide.
+    Prints each hex/square cell as an outline with its piece ID and grid pos,
+    for use as a physical template when assembling the relief.
+    """
+    w_mm = metadata.get("width_mm", metadata.get("num_cols", 10) * metadata.get("box_size_mm", 15))
+    h_mm = metadata.get("height_mm", metadata.get("num_rows", 10) * metadata.get("box_size_mm", 15))
+    c = canvas.Canvas(output_path, pagesize=(w_mm * mm, h_mm * mm))
+    c.setLineWidth(0.3)
+
+    if not grid_data:
+        c.save()
+        return output_path
+
+    min_px = min(px for item in grid_data for px, _ in item.get("exterior_coords", [[0, 0]]))
+    max_px = max(px for item in grid_data for px, _ in item.get("exterior_coords", [[0, 0]]))
+    min_py = min(py for item in grid_data for _, py in item.get("exterior_coords", [[0, 0]]))
+    max_py = max(py for item in grid_data for _, py in item.get("exterior_coords", [[0, 0]]))
+
+    grid_w = max_px - min_px
+    grid_h = max_py - min_py
+    offset_x = (w_mm - grid_w) / 2.0 - min_px
+    offset_y = (h_mm - grid_h) / 2.0 - min_py
+
+    for item in grid_data:
+        coords = item.get("exterior_coords", [])
+        if not coords:
+            continue
+
+        color = item.get("color", "#cccccc")
+        poly_pts = [
+            ((px + offset_x) * mm, (h_mm - (py + offset_y)) * mm)
+            for px, py in coords
+        ]
+
+        c.setFillColor(HexColor(color))
+        c.setFillAlpha(0.15)
+        c.setStrokeColorRGB(0, 0, 0)
+        c.setDash()
+
+        path = c.beginPath()
+        path.moveTo(*poly_pts[0])
+        for pt in poly_pts[1:]:
+            path.lineTo(*pt)
+        path.close()
+        c.drawPath(path, fill=True, stroke=True)
+
+        c.setFillAlpha(1.0)
+        cx = sum(pt[0] for pt in poly_pts) / len(poly_pts)
+        cy = sum(pt[1] for pt in poly_pts) / len(poly_pts)
+
+        c.setFillColorRGB(0, 0, 0)
+        c.setFont("Helvetica-Bold", 5)
+        c.drawCentredString(cx, cy + 2, item["id"])
+
+        gp = item.get("grid_pos")
+        if gp:
+            c.setFont("Helvetica", 4)
+            c.drawCentredString(cx, cy - 3, f"R{gp['row']:02d}-C{gp['col']:02d}")
+
+    c.setStrokeColorRGB(0, 0, 0)
+    c.setLineWidth(1)
+    c.rect(2 * mm, 2 * mm, (w_mm - 4) * mm, (h_mm - 4) * mm, fill=0, stroke=1)
+    c.setFont("Helvetica-Bold", 8)
+    c.setFillColorRGB(0, 0, 0)
+    c.drawString(4 * mm, (h_mm - 8) * mm, "BACKBOARD ASSEMBLY GUIDE — 1:1 SCALE")
+    c.setFont("Helvetica", 6)
+    c.drawString(4 * mm, (h_mm - 14) * mm, f"{len(grid_data)} pieces | {w_mm:.0f}mm x {h_mm:.0f}mm | align piece IDs with labels")
+
+    c.save()
+    return output_path

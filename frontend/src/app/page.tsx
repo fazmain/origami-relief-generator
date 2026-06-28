@@ -257,6 +257,29 @@ export default function Home() {
     ));
   };
 
+  const handleDownloadBackboard = async () => {
+    if (!gridData || !metadata) return;
+    try {
+      const res = await fetch(`${API_URL}/api/backboard`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ grid: gridData, metadata: { ...metadata, width_mm: width, height_mm: height } }),
+      });
+      if (!res.ok) throw new Error("Failed to generate backboard");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "origami_backboard.pdf";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: unknown) {
+      if (err instanceof Error) alert("Error: " + err.message);
+    }
+  };
+
   const handleDownloadPoster = async () => {
     if (!gridData || !metadata) return;
     
@@ -616,6 +639,13 @@ export default function Home() {
                   className="w-full mt-2 bg-white text-black border-2 border-black py-3 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
                 >
                   Download SVG (Laser Cut)
+                </button>
+
+                <button
+                  onClick={handleDownloadBackboard}
+                  className="w-full mt-2 bg-white text-black border-2 border-black py-3 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+                >
+                  Download Backboard Guide
                 </button>
               </div>
             );

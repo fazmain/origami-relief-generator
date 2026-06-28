@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from processing import process_image
-from pdf_generator import generate_pdf, generate_poster
+from pdf_generator import generate_pdf, generate_poster, generate_backboard
 from svg_export import generate_svg
 
 logger = logging.getLogger(__name__)
@@ -142,6 +142,34 @@ async def generate_pdf_poster_endpoint(
     except Exception:
         logger.error("Poster generation failed", exc_info=True)
         raise HTTPException(status_code=500, detail="Poster generation failed")
+
+
+@app.post("/api/backboard")
+async def generate_backboard_endpoint(
+    background_tasks: BackgroundTasks,
+    payload: dict = Body(...),
+):
+    grid_data = payload.get("grid")
+    metadata = payload.get("metadata")
+    if not grid_data or not metadata:
+        raise HTTPException(status_code=400, detail="Missing grid or metadata")
+
+    try:
+        tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+        output_path = tmp.name
+        tmp.close()
+
+        generate_backboard(grid_data, metadata, output_path)
+        background_tasks.add_task(os.unlink, output_path)
+
+        return FileResponse(
+            path=output_path,
+            filename="origami_backboard.pdf",
+            media_type="application/pdf",
+        )
+    except Exception:
+        logger.error("Backboard generation failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Backboard generation failed")
 
 
 @app.post("/api/svg")

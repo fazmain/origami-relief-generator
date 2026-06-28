@@ -189,3 +189,19 @@ class TestSvgEndpoint:
     def test_missing_metadata_returns_400(self):
         r = client.post("/api/svg", json={"grid": MINIMAL_GRID_PAYLOAD["grid"]})
         assert r.status_code == 400
+
+
+class TestBackboardEndpoint:
+    def test_valid_payload_returns_pdf(self):
+        payload = {**MINIMAL_GRID_PAYLOAD, "metadata": {**MINIMAL_GRID_PAYLOAD["metadata"], "width_mm": 150, "height_mm": 150}}
+        r = client.post("/api/backboard", json=payload)
+        assert r.status_code == 200
+        assert "application/pdf" in r.headers["content-type"]
+
+    def test_missing_grid_returns_400(self):
+        r = client.post("/api/backboard", json={"metadata": MINIMAL_GRID_PAYLOAD["metadata"]})
+        assert r.status_code == 400
+
+    def test_missing_metadata_returns_400(self):
+        r = client.post("/api/backboard", json={"grid": MINIMAL_GRID_PAYLOAD["grid"]})
+        assert r.status_code == 400
