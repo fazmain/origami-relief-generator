@@ -466,43 +466,71 @@ export default function Home() {
             </div>
           )}
 
-          {metadata && (
-            <div className="mt-4 p-4 border-2 border-black bg-gray-50">
-              <h3 className="font-bold mb-2 uppercase border-b border-black pb-1">Result Metadata</h3>
-              <ul className="text-sm space-y-1 font-mono">
-                <li>Columns: {metadata.num_cols}</li>
-                <li>Rows: {metadata.num_rows}</li>
-                <li>Pieces: {gridData?.length || metadata.num_cols * metadata.num_rows}</li>
-                <li>Box Size: {metadata.box_size_mm} mm</li>
-                {metadata.height_levels && metadata.height_levels >= 2 ? (
-                  <li>Height Levels: {metadata.height_levels} ({metadata.min_height_mm}–{metadata.max_height_mm} mm)</li>
-                ) : (
-                  <li>Height: Continuous ({metadata.min_height_mm}–{metadata.max_height_mm} mm)</li>
-                )}
-              </ul>
+          {metadata && gridData && (() => {
+            const R = metadata.R;
+            const hexBaseArea = 2.598 * R * R; // mm²
+            const TAB_H = 5; // mm — matches pdf_generator default
+            const totalPieces = gridData.length;
+            const avgHeight = gridData.reduce((s, c) => s + c.height_mm, 0) / (totalPieces || 1);
+            const wallAreaPerPiece = 6 * R * avgHeight;
+            const tabAreaPerPiece = 6 * R * TAB_H;
+            const areaPerPiece = 2 * hexBaseArea + wallAreaPerPiece + tabAreaPerPiece;
+            const totalAreaMm2 = areaPerPiece * totalPieces;
+            const a4AreaMm2 = 210 * 297;
+            const sheetsA4 = totalAreaMm2 / a4AreaMm2;
+            const foldTimeMin = totalPieces * 2.5;
+            const foldTimeH = Math.floor(foldTimeMin / 60);
+            const foldTimeM = Math.round(foldTimeMin % 60);
+            const uniqueColors = new Set(gridData.map((c) => c.color)).size;
+            return (
+              <div className="mt-4 p-4 border-2 border-black bg-gray-50">
+                <h3 className="font-bold mb-2 uppercase border-b border-black pb-1">Relief Statistics</h3>
+                <ul className="text-sm space-y-1 font-mono">
+                  <li>Pieces: <strong>{totalPieces}</strong></li>
+                  <li>Colors: {uniqueColors}</li>
+                  <li>Box Size: {metadata.box_size_mm} mm</li>
+                  <li>Grid: {metadata.num_cols} × {metadata.num_rows}</li>
+                  {metadata.height_levels && metadata.height_levels >= 2 ? (
+                    <li>Height Levels: {metadata.height_levels} ({metadata.min_height_mm}–{metadata.max_height_mm} mm)</li>
+                  ) : (
+                    <li>Height: {metadata.min_height_mm}–{metadata.max_height_mm} mm</li>
+                  )}
+                  <li>Avg Height: {avgHeight.toFixed(1)} mm</li>
+                </ul>
+                <div className="mt-3 pt-3 border-t border-gray-300">
+                  <p className="text-xs font-bold uppercase mb-1 text-gray-500">Estimates</p>
+                  <ul className="text-sm space-y-1 font-mono">
+                    <li>Paper: ~{sheetsA4.toFixed(1)} A4 sheets</li>
+                    <li>Fold time: ~{foldTimeH > 0 ? `${foldTimeH}h ` : ""}{foldTimeM}min</li>
+                    <li>Total folds: ~{totalPieces * 12}</li>
+                  </ul>
+                </div>
 
-              <button 
-                onClick={handleDownloadPDF}
-                className="w-full mt-6 bg-white text-black border-2 border-black py-3 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
-              >
-                Download PDF Blueprint
-              </button>
-              
-              <button
-                onClick={handleDownloadPoster}
-                className="w-full mt-2 bg-white text-black border-2 border-black py-3 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
-              >
-                Download 1:1 Poster Blueprint
-              </button>
+                <button
+                  onClick={handleDownloadPDF}
+                  className="w-full mt-6 bg-white text-black border-2 border-black py-3 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+                >
+                  Download PDF Blueprint
+                </button>
 
-              <button
-                onClick={handleDownloadSVG}
-                className="w-full mt-2 bg-white text-black border-2 border-black py-3 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
-              >
-                Download SVG (Laser Cut)
-              </button>
-              
-              {gridData && (() => {
+                <button
+                  onClick={handleDownloadPoster}
+                  className="w-full mt-2 bg-white text-black border-2 border-black py-3 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+                >
+                  Download 1:1 Poster Blueprint
+                </button>
+
+                <button
+                  onClick={handleDownloadSVG}
+                  className="w-full mt-2 bg-white text-black border-2 border-black py-3 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+                >
+                  Download SVG (Laser Cut)
+                </button>
+              </div>
+            );
+          })()}
+
+          {gridData && (() => {
                 const freq = new Map<string, number>();
                 gridData.forEach((c) => freq.set(c.color, (freq.get(c.color) || 0) + 1));
                 const palette = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]);
@@ -588,8 +616,6 @@ export default function Home() {
                   />
                 </div>
               </div>
-            </div>
-          )}
         </div>
 
         {/* 3D Visualizer Area */}
