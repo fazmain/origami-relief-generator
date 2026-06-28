@@ -191,6 +191,22 @@ class TestSvgEndpoint:
         assert r.status_code == 400
 
 
+class TestTiledPdfEndpoint:
+    def test_valid_payload_returns_pdf(self):
+        payload = {**MINIMAL_GRID_PAYLOAD, "tile_width_mm": 150, "tile_height_mm": 200}
+        r = client.post("/api/pdf_tiled", json=payload)
+        assert r.status_code == 200
+        assert "application/pdf" in r.headers["content-type"]
+
+    def test_missing_grid_returns_400(self):
+        r = client.post("/api/pdf_tiled", json={"metadata": MINIMAL_GRID_PAYLOAD["metadata"]})
+        assert r.status_code == 400
+
+    def test_default_tile_size_works(self):
+        r = client.post("/api/pdf_tiled", json=MINIMAL_GRID_PAYLOAD)
+        assert r.status_code == 200
+
+
 class TestBackboardEndpoint:
     def test_valid_payload_returns_pdf(self):
         payload = {**MINIMAL_GRID_PAYLOAD, "metadata": {**MINIMAL_GRID_PAYLOAD["metadata"], "width_mm": 150, "height_mm": 150}}

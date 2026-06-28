@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from processing import process_image
-from pdf_generator import generate_pdf, generate_poster, generate_backboard
+from pdf_generator import generate_pdf, generate_poster, generate_backboard, generate_tiled_pdf
 from svg_export import generate_svg
 
 logger = logging.getLogger(__name__)
@@ -142,6 +142,38 @@ async def generate_pdf_poster_endpoint(
     except Exception:
         logger.error("Poster generation failed", exc_info=True)
         raise HTTPException(status_code=500, detail="Poster generation failed")
+
+
+@app.post("/api/pdf_tiled")
+async def generate_tiled_pdf_endpoint(
+    background_tasks: BackgroundTasks,
+    payload: dict = Body(...),
+):
+    grid_data = payload.get("grid")
+    metadata = payload.get("metadata")
+    tile_width_mm = float(payload.get("tile_width_mm", 210))
+    tile_height_mm = float(payload.get("tile_height_mm", 297))
+    if not grid_data or not metadata:
+        raise HTTPException(status_code=400, detail="Missing grid or metadata")
+
+    try:
+        tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+        output_path = tmp.name
+        tmp.close()
+
+        generate_tiled_pdf(grid_data, metadata, output_path,
+                           tile_width_mm=max(50, min(1000, tile_width_mm)),
+                           tile_height_mm=max(50, min(1000, tile_height_mm)))
+        background_tasks.add_task(os.unlink, output_path)
+
+        return FileResponse(
+            path=output_path,
+            filename="origami_tiled.pdf",
+            media_type="application/pdf",
+        )
+    except Exception:
+        logger.error("Tiled PDF generation failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Tiled PDF generation failed")
 
 
 @app.post("/api/backboard")

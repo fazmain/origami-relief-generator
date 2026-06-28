@@ -257,6 +257,32 @@ export default function Home() {
     ));
   };
 
+  const [tileWidthMm, setTileWidthMm] = useState<number>(210);
+  const [tileHeightMm, setTileHeightMm] = useState<number>(297);
+
+  const handleDownloadTiledPDF = async () => {
+    if (!gridData || !metadata) return;
+    try {
+      const res = await fetch(`${API_URL}/api/pdf_tiled`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ grid: gridData, metadata, tile_width_mm: tileWidthMm, tile_height_mm: tileHeightMm }),
+      });
+      if (!res.ok) throw new Error("Failed to generate tiled PDF");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "origami_tiled.pdf";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: unknown) {
+      if (err instanceof Error) alert("Error: " + err.message);
+    }
+  };
+
   const handleDownloadBackboard = async () => {
     if (!gridData || !metadata) return;
     try {
@@ -640,6 +666,26 @@ export default function Home() {
                 >
                   Download SVG (Laser Cut)
                 </button>
+
+                <div className="mt-4 border-t border-gray-300 pt-3">
+                  <p className="text-xs font-bold uppercase mb-2">Tiled PDF — one file per panel</p>
+                  <div className="flex gap-2 mb-2">
+                    <div className="flex-1">
+                      <label className="block text-xs uppercase mb-1">Tile W (mm)</label>
+                      <input type="number" value={tileWidthMm} onChange={(e) => setTileWidthMm(Number(e.target.value))}
+                        className="w-full border border-black p-1 text-sm focus:outline-none" />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs uppercase mb-1">Tile H (mm)</label>
+                      <input type="number" value={tileHeightMm} onChange={(e) => setTileHeightMm(Number(e.target.value))}
+                        className="w-full border border-black p-1 text-sm focus:outline-none" />
+                    </div>
+                  </div>
+                  <button onClick={handleDownloadTiledPDF}
+                    className="w-full bg-white text-black border-2 border-black py-2 text-sm font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors">
+                    Download Tiled PDF
+                  </button>
+                </div>
 
                 <button
                   onClick={handleDownloadBackboard}

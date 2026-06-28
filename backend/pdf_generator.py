@@ -455,3 +455,91 @@ def generate_backboard(grid_data, metadata, output_path="backboard.pdf"):
 
     c.save()
     return output_path
+
+
+def generate_tiled_pdf(grid_data, metadata, output_path="tiled.pdf", tile_width_mm=210, tile_height_mm=297):
+    """
+    Split grid into spatial tiles. One PDF page group per tile, containing cut nets
+    for pieces whose centroid falls in that tile. Tile coordinates printed in header.
+    """
+    if not grid_data:
+        c2 = canvas.Canvas(output_path, pagesize=letter)
+        c2.save()
+        return output_path
+
+    margin_mm = 10
+    box_size = metadata.get("box_size_mm", 15)
+
+    tile_map: dict = {}
+    for item in grid_data:
+        coords = item.get("exterior_coords", [])
+        if not coords:
+            continue
+        cxp = sum(p[0] for p in coords) / len(coords)
+        cyp = sum(p[1] for p in coords) / len(coords)
+        tx = int(cxp // tile_width_mm)
+        ty = int(cyp // tile_height_mm)
+        key = (tx, ty)
+        tile_map.setdefault(key, []).append(item)
+
+    if not tile_map:
+        c2 = canvas.Canvas(output_path, pagesize=letter)
+        c2.save()
+        return output_path
+
+    page_w = tile_width_mm * mm
+    page_h = tile_height_mm * mm
+    c2 = canvas.Canvas(output_path, pagesize=(page_w, page_h))
+
+    for tile_key in sorted(tile_map.keys()):
+        tx, ty = tile_key
+        items = tile_map[tile_key]
+
+        c2.setFillColorRGB(0, 0, 0)
+        c2.setFont("Helvetica-Bold", 9)
+        c2.drawString(margin_mm * mm, (tile_height_mm - margin_mm) * mm,
+                      f"TILE ({tx},{ty}) — Origami Relief — {len(items)} pieces")
+        c2.setFont("Helvetica", 7)
+        c2.drawString(margin_mm * mm, (tile_height_mm - margin_mm - 5) * mm,
+                      f"Region: x={tx*tile_width_mm:.0f}–{(tx+1)*tile_width_mm:.0f}mm, "
+                      f"y={ty*tile_height_mm:.0f}–{(ty+1)*tile_height_mm:.0f}mm")
+
+        usable_w = (tile_width_mm - 2 * margin_mm) * mm
+        cur_x = margin_mm * mm
+        cur_y = (tile_height_mm - margin_mm - 15) * mm
+        row_h = 0
+
+        for item in sorted(items, key=lambda p: (p["color"], p["height_mm"])):
+            geom = get_piece_geometry(box_size, item["top_vertices_z"], item.get("exterior_coords"))
+            geom["id"] = item["id"]
+            geom["color"] = item["color"]
+            geom["grid_pos"] = item.get("grid_pos")
+            bbox = geom["bbox"]
+            w = bbox[2] + 5 * mm
+            h = bbox[3] + 5 * mm
+
+            if cur_x + w > margin_mm * mm + usable_w:
+                cur_x = margin_mm * mm
+                cur_y -= row_h
+                row_h = 0
+
+            if cur_y - h < margin_mm * mm:
+                c2.showPage()
+                c2.setFillColorRGB(0, 0, 0)
+                c2.setFont("Helvetica-Bold", 9)
+                c2.drawString(margin_mm * mm, (tile_height_mm - margin_mm) * mm,
+                              f"TILE ({tx},{ty}) continued")
+                cur_x = margin_mm * mm
+                cur_y = (tile_height_mm - margin_mm - 15) * mm
+                row_h = 0
+
+            min_x, min_y, _bw, _bh = bbox
+            draw_geometry(c2, cur_x - min_x + 2.5 * mm, cur_y - h - min_y + 2.5 * mm,
+                          geom, geom["id"], geom["color"], geom["grid_pos"])
+            cur_x += w
+            row_h = max(row_h, h)
+
+        c2.showPage()
+
+    c2.save()
+    return output_path
