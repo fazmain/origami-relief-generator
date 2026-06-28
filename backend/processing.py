@@ -318,7 +318,8 @@ def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors
             "exterior_coords": vertices_2d,
             "top_vertices_z": top_z,
             "is_cluster": False,
-            "box_size_mm": min_box_size_mm
+            "box_size_mm": min_box_size_mm,
+            "grid_pos": {"col": c, "row": r},
         })
     
     cluster_idx = 0
@@ -399,7 +400,8 @@ def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors
                 "exterior_coords": exterior_coords,
                 "top_vertices_z": top_vertices_z,
                 "is_cluster": True,
-                "box_size_mm": min_box_size_mm
+                "box_size_mm": min_box_size_mm,
+                "grid_pos": {"col": base_c, "row": base_r},
             })
             cluster_idx += 1
 
