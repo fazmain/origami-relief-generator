@@ -32,6 +32,7 @@ export default function Home() {
   const [minHeightMm, setMinHeightMm] = useState<number>(10);
   
   const [algorithm, setAlgorithm] = useState<"depth" | "luminance">("depth");
+  const [shape, setShape] = useState<"hex" | "square">("hex");
   const [heightLevels, setHeightLevels] = useState<number>(0);
   const [heightGamma, setHeightGamma] = useState<number>(1.0);
   const [brightness, setBrightness] = useState<number>(0.0);
@@ -108,6 +109,7 @@ export default function Home() {
     formData.append("algorithm", algorithm);
     formData.append("height_levels", heightLevels.toString());
     formData.append("height_gamma", heightGamma.toString());
+    formData.append("shape", shape);
     formData.append("brightness", brightness.toString());
     formData.append("contrast", contrast.toString());
     formData.append("saturation", saturation.toString());
@@ -195,7 +197,7 @@ export default function Home() {
     if (!gridData || !metadata) return;
     const project = {
       version: 1,
-      settings: { width, height, aspectRatio, minHeightMm, maxHeightMm, algorithm, heightLevels, heightGamma, brightness, contrast, saturation, resolutionMode, boxSizeMm, targetPieces },
+      settings: { width, height, aspectRatio, minHeightMm, maxHeightMm, algorithm, shape, heightLevels, heightGamma, brightness, contrast, saturation, resolutionMode, boxSizeMm, targetPieces },
       metadata,
       gridData,
     };
@@ -228,6 +230,7 @@ export default function Home() {
         if (s.minHeightMm !== undefined) setMinHeightMm(s.minHeightMm);
         if (s.maxHeightMm !== undefined) setMaxHeightMm(s.maxHeightMm);
         if (s.algorithm) setAlgorithm(s.algorithm);
+        if (s.shape) setShape(s.shape);
         if (s.heightLevels !== undefined) setHeightLevels(s.heightLevels);
         if (s.heightGamma !== undefined) setHeightGamma(s.heightGamma);
         if (s.brightness !== undefined) setBrightness(s.brightness);
@@ -480,29 +483,47 @@ export default function Home() {
             </div>
 
             <div>
-              <label className="block text-sm font-bold uppercase mb-2">3. Algorithm Mode</label>
+              <label className="block text-sm font-bold uppercase mb-2">3. Prism Shape</label>
+              <div className="flex gap-4 mb-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="shapeMode" value="hex"
+                    checked={shape === "hex"} onChange={() => setShape("hex")}
+                    className="accent-black" />
+                  <span>Hexagonal</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="shapeMode" value="square"
+                    checked={shape === "square"} onChange={() => setShape("square")}
+                    className="accent-black" />
+                  <span>Square</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold uppercase mb-2">4. Algorithm Mode</label>
               <div className="flex flex-col gap-2 mb-2">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input 
-                    type="radio" 
-                    name="algMode" 
-                    value="depth" 
+                  <input
+                    type="radio"
+                    name="algMode"
+                    value="depth"
                     checked={algorithm === "depth"}
                     onChange={() => setAlgorithm("depth")}
                     className="accent-black"
                   />
-                  <span>Depth Estimation (Sloped & Clustered)</span>
+                  <span>Depth Estimation {shape === "hex" ? "(Sloped & Clustered)" : "(Sloped)"}</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input 
-                    type="radio" 
-                    name="algMode" 
-                    value="luminance" 
+                  <input
+                    type="radio"
+                    name="algMode"
+                    value="luminance"
                     checked={algorithm === "luminance"}
                     onChange={() => setAlgorithm("luminance")}
                     className="accent-black"
                   />
-                  <span>Luminance (Flat Hexagons)</span>
+                  <span>Luminance (Flat {shape === "hex" ? "Hexagons" : "Squares"})</span>
                 </label>
               </div>
             </div>

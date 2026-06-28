@@ -46,6 +46,7 @@ async def process_image_endpoint(
     brightness: float = Form(0.0),
     contrast: float = Form(1.0),
     saturation: float = Form(1.0),
+    shape: str = Form("hex"),
 ):
     if width_mm <= 0 or height_mm <= 0:
         raise HTTPException(status_code=400, detail="Canvas dimensions must be positive")
@@ -53,6 +54,8 @@ async def process_image_endpoint(
     if not image.content_type or not image.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File provided is not an image")
 
+    if shape not in ["hex", "square"]:
+        raise HTTPException(status_code=400, detail="Invalid shape")
     if algorithm not in ["depth", "luminance"]:
         raise HTTPException(status_code=400, detail="Invalid algorithm")
 
@@ -75,6 +78,7 @@ async def process_image_endpoint(
             brightness=max(-1.0, min(1.0, brightness)),
             contrast=max(0.1, min(5.0, contrast)),
             saturation=max(0.0, min(5.0, saturation)),
+            shape=shape,
         )
         return result
     except ValueError as e:

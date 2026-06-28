@@ -349,3 +349,69 @@ class TestPreprocessing:
             brightness=0.1, contrast=1.2, saturation=0.8,
         )
         assert len(r["grid"]) > 0
+
+
+class TestSquareMode:
+    def test_square_cells_have_4_vertices(self):
+        r = process_image(
+            image_bytes=make_image_bytes(h=50, w=50), width_mm=100.0, height_mm=100.0,
+            min_box_size_mm=20.0, k_colors=2,
+            min_height_mm=10.0, max_height_mm=30.0,
+            algorithm="luminance", shape="square",
+        )
+        for cell in r["grid"]:
+            assert len(cell["exterior_coords"]) == 4
+            assert len(cell["top_vertices_z"]) == 4
+
+    def test_square_metadata_shape(self):
+        r = process_image(
+            image_bytes=make_image_bytes(h=50, w=50), width_mm=100.0, height_mm=100.0,
+            min_box_size_mm=20.0, k_colors=2,
+            min_height_mm=10.0, max_height_mm=30.0,
+            algorithm="luminance", shape="square",
+        )
+        assert r["metadata"]["shape"] == "square"
+
+    def test_hex_metadata_shape(self):
+        r = process_image(
+            image_bytes=make_image_bytes(h=50, w=50), width_mm=100.0, height_mm=100.0,
+            min_box_size_mm=20.0, k_colors=2,
+            min_height_mm=10.0, max_height_mm=30.0,
+            algorithm="luminance", shape="hex",
+        )
+        assert r["metadata"]["shape"] == "hex"
+
+    def test_square_piece_count_proportional_to_canvas(self):
+        r = process_image(
+            image_bytes=make_image_bytes(h=100, w=200), width_mm=200.0, height_mm=100.0,
+            min_box_size_mm=20.0, k_colors=2,
+            min_height_mm=10.0, max_height_mm=30.0,
+            algorithm="luminance", shape="square",
+        )
+        meta = r["metadata"]
+        assert meta["num_cols"] == 10
+        assert meta["num_rows"] == 5
+        assert len(r["grid"]) == 50
+
+    def test_square_height_within_bounds(self):
+        r = process_image(
+            image_bytes=make_image_bytes(h=50, w=50), width_mm=100.0, height_mm=100.0,
+            min_box_size_mm=20.0, k_colors=2,
+            min_height_mm=10.0, max_height_mm=40.0,
+            algorithm="luminance", shape="square",
+        )
+        for cell in r["grid"]:
+            assert cell["height_mm"] >= 10.0 - 0.01
+            assert cell["height_mm"] <= 40.0 + 0.01
+
+    def test_square_grid_pos_present(self):
+        r = process_image(
+            image_bytes=make_image_bytes(h=50, w=50), width_mm=100.0, height_mm=100.0,
+            min_box_size_mm=20.0, k_colors=2,
+            min_height_mm=10.0, max_height_mm=30.0,
+            algorithm="luminance", shape="square",
+        )
+        for cell in r["grid"]:
+            assert "grid_pos" in cell
+            assert "col" in cell["grid_pos"]
+            assert "row" in cell["grid_pos"]

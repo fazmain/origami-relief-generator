@@ -88,7 +88,97 @@ def _apply_preprocessing(img: np.ndarray, brightness: float, contrast: float, sa
     return img
 
 
-def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors=6, min_height_mm=10, max_height_mm=50, algorithm="depth", height_levels=0, height_gamma=1.0, brightness=0.0, contrast=1.0, saturation=1.0):
+def _process_square(img, width_mm, height_mm, min_box_size_mm, k_colors, min_height_mm, max_height_mm, algorithm, height_levels, height_gamma):
+    """Square prism mode: regular grid of squares, each a flat-top prism."""
+    S = min_box_size_mm
+    num_cols = max(1, int(width_mm / S))
+    num_rows = max(1, int(height_mm / S))
+
+    small_img = cv2.resize(img, (num_cols, num_rows), interpolation=cv2.INTER_AREA)
+    pixels = small_img.reshape(-1, 3)
+    kmeans = KMeans(n_clusters=k_colors, random_state=42, n_init=10)
+    kmeans.fit(pixels)
+    quantized_colors = kmeans.cluster_centers_[kmeans.labels_]
+    quantized_img = quantized_colors.reshape(num_rows, num_cols, 3)
+
+    if algorithm == "depth":
+        estimator = get_depth_estimator()
+        from PIL import Image as PILImage
+        pil_img = PILImage.fromarray(img)
+        depth_result = estimator(pil_img)
+        depth_array = np.array(depth_result["depth"])
+        depth_map = cv2.resize(depth_array, (num_cols, num_rows), interpolation=cv2.INTER_AREA)
+    else:
+        depth_map = cv2.cvtColor(quantized_img.astype(np.uint8), cv2.COLOR_RGB2GRAY)
+
+    # Half edge for slope corners
+    h = S / 2.0
+    # Corner offsets (dx, dy) in mm relative to square center
+    corners = [(-h, -h), (h, -h), (h, h), (-h, h)]
+
+    results = []
+    idx = 0
+
+    for r in range(num_rows):
+        for c in range(num_cols):
+            color = quantized_img[r, c]
+            hex_color = rgb_to_hex(*color)
+            lum = float(depth_map[r, c])
+
+            H_c = min_height_mm + ((lum / 255.0) ** height_gamma) * (max_height_mm - min_height_mm)
+
+            if algorithm == "depth":
+                lum_left = float(depth_map[r, max(0, c - 1)])
+                lum_right = float(depth_map[r, min(num_cols - 1, c + 1)])
+                lum_up = float(depth_map[max(0, r - 1), c])
+                lum_down = float(depth_map[min(num_rows - 1, r + 1), c])
+                m_x = ((lum_right - lum_left) / 255.0 * (max_height_mm - min_height_mm)) / (2 * S)
+                m_y = ((lum_down - lum_up) / 255.0 * (max_height_mm - min_height_mm)) / (2 * S)
+                top_z = [round(max(0.1, H_c + m_x * dx + m_y * dy), 2) for dx, dy in corners]
+            else:
+                top_z = [round(H_c, 2)] * 4
+
+            # Exterior coords: square corners in mm (x right, y down)
+            cx = c * S + h
+            cy = r * S + h
+            exterior = [(round(cx + dx, 4), round(cy + dy, 4)) for dx, dy in corners]
+
+            if height_levels >= 2:
+                level_array = np.linspace(min_height_mm, max_height_mm, height_levels)
+                H_c_snapped = float(level_array[np.argmin(np.abs(level_array - H_c))])
+                delta = H_c_snapped - H_c
+                H_c = round(H_c_snapped, 2)
+                top_z = [round(max(0.1, z + delta), 2) for z in top_z]
+
+            results.append({
+                "id": f"S{idx}",
+                "color": hex_color,
+                "height_mm": round(H_c, 2),
+                "exterior_coords": exterior,
+                "top_vertices_z": top_z,
+                "is_cluster": False,
+                "box_size_mm": S,
+                "grid_pos": {"col": c, "row": r},
+            })
+            idx += 1
+
+    return {
+        "grid": results,
+        "metadata": {
+            "num_cols": num_cols,
+            "num_rows": num_rows,
+            "box_size_mm": S,
+            "R": S / 2.0,
+            "min_height_mm": min_height_mm,
+            "max_height_mm": max_height_mm,
+            "height_levels": height_levels,
+            "height_gamma": height_gamma,
+            "shape": "square",
+        },
+    }
+
+
+def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors=6, min_height_mm=10, max_height_mm=50, algorithm="depth", height_levels=0, height_gamma=1.0, brightness=0.0, contrast=1.0, saturation=1.0, shape="hex"):
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if img is None:
@@ -109,6 +199,9 @@ def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors
         new_h = int(img_w / target_aspect)
         offset = (img_h - new_h) // 2
         img = img[offset:offset+new_h, :]
+
+    if shape == "square":
+        return _process_square(img, width_mm, height_mm, min_box_size_mm, k_colors, min_height_mm, max_height_mm, algorithm, height_levels, height_gamma)
 
     R = min_box_size_mm / 2.0
     scale_x = 1.5 * R
@@ -437,5 +530,6 @@ def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors
             "max_height_mm": max_height_mm,
             "height_levels": height_levels,
             "height_gamma": height_gamma,
+            "shape": "hex",
         }
     }
