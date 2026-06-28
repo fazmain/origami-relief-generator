@@ -1,0 +1,22 @@
+# Server
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.12
+
+# Image processing
+opencv-python>=4.10.0
+numpy>=1.26.0
+scikit-learn>=1.5.0
+Pillow>=11.0.0
+shapely>=2.0.0
+
+# Depth estimation (depth algorithm only — torch is large)
+transformers>=4.47.0
+torch>=2.5.0
+
+# PDF generation
+reportlab>=4.2.0
+
+# Testing
+pytest>=8.0.0
+httpx>=0.27.0

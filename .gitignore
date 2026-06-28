@@ -1,0 +1,47 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+.env
+
+# Backend generated artifacts
+backend/*.pdf
+backend/*.png
+backend/*.jpg
+backend/out.json
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+frontend/.env.production
+
+# Root-level test artifacts
+/*.pdf
+/*.png
+/response.json
+/test_img.png
+/test_from_api.pdf
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Playwright
+frontend/playwright-report/
+frontend/test-results/
+# fixtures are committed (generated once via backend/venv python)
+!frontend/tests/e2e/fixtures/
