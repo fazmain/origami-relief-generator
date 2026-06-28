@@ -40,6 +40,7 @@ async def process_image_endpoint(
     min_height_mm: float = Form(10.0),
     max_height_mm: float = Form(50.0),
     algorithm: str = Form("depth"),
+    height_levels: int = Form(0),
 ):
     if width_mm <= 0 or height_mm <= 0:
         raise HTTPException(status_code=400, detail="Canvas dimensions must be positive")
@@ -64,6 +65,7 @@ async def process_image_endpoint(
             min_height_mm=min_height_mm,
             max_height_mm=max_height_mm,
             algorithm=algorithm,
+            height_levels=height_levels,
         )
         return result
     except ValueError as e:

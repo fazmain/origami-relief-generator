@@ -68,7 +68,7 @@ def get_neighbors(c, r, num_cols, num_rows):
             neighbors.append((nc, nr))
     return neighbors
 
-def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors=6, min_height_mm=10, max_height_mm=50, algorithm="depth"):
+def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors=6, min_height_mm=10, max_height_mm=50, algorithm="depth", height_levels=0):
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if img is None:
@@ -143,6 +143,18 @@ def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors
                 "m_y": m_y,
                 "top_vertices_z": top_vertices_z
             }
+
+    # Snap heights to N discrete levels (0 = continuous, no-op)
+    if height_levels >= 2:
+        level_array = np.linspace(min_height_mm, max_height_mm, height_levels)
+        for key in hex_data:
+            H_c = hex_data[key]["H_c"]
+            snapped = float(level_array[np.argmin(np.abs(level_array - H_c))])
+            delta = snapped - H_c
+            hex_data[key]["H_c"] = round(snapped, 2)
+            hex_data[key]["top_vertices_z"] = [
+                round(max(0.1, z + delta), 2) for z in hex_data[key]["top_vertices_z"]
+            ]
 
     # Clustering
     if algorithm == "luminance":
@@ -397,6 +409,9 @@ def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors
             "num_cols": num_cols,
             "num_rows": num_rows,
             "box_size_mm": min_box_size_mm,
-            "R": R
+            "R": R,
+            "min_height_mm": min_height_mm,
+            "max_height_mm": max_height_mm,
+            "height_levels": height_levels,
         }
     }

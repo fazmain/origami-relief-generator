@@ -156,3 +156,69 @@ class TestLuminanceAlgorithm:
         for cell in result["grid"]:
             zs = cell["top_vertices_z"]
             assert all(abs(z - zs[0]) < 0.01 for z in zs), "Luminance mode: all vertices should have equal z"
+
+
+class TestHeightQuantization:
+    def test_four_levels_produces_exactly_four_heights(self):
+        result = process_image(
+            image_bytes=make_image_bytes(h=100, w=100),
+            width_mm=200.0, height_mm=200.0,
+            min_box_size_mm=15.0, k_colors=4,
+            min_height_mm=10.0, max_height_mm=40.0,
+            algorithm="luminance",
+            height_levels=4,
+        )
+        heights = set(round(cell["height_mm"], 1) for cell in result["grid"])
+        assert len(heights) <= 4
+
+    def test_levels_are_on_expected_grid(self):
+        min_h, max_h, n = 10.0, 40.0, 4
+        result = process_image(
+            image_bytes=make_image_bytes(h=100, w=100),
+            width_mm=200.0, height_mm=200.0,
+            min_box_size_mm=15.0, k_colors=4,
+            min_height_mm=min_h, max_height_mm=max_h,
+            algorithm="luminance",
+            height_levels=n,
+        )
+        import numpy as np
+        expected = set(round(v, 2) for v in np.linspace(min_h, max_h, n))
+        for cell in result["grid"]:
+            assert round(cell["height_mm"], 1) in set(round(v, 1) for v in expected)
+
+    def test_zero_levels_is_continuous(self):
+        result = process_image(
+            image_bytes=make_image_bytes(h=50, w=50),
+            width_mm=150.0, height_mm=150.0,
+            min_box_size_mm=20.0, k_colors=3,
+            min_height_mm=10.0, max_height_mm=50.0,
+            algorithm="luminance",
+            height_levels=0,
+        )
+        assert result["metadata"]["height_levels"] == 0
+
+    def test_metadata_reports_height_levels(self):
+        result = process_image(
+            image_bytes=make_image_bytes(h=50, w=50),
+            width_mm=150.0, height_mm=150.0,
+            min_box_size_mm=20.0, k_colors=2,
+            min_height_mm=10.0, max_height_mm=50.0,
+            algorithm="luminance",
+            height_levels=5,
+        )
+        assert result["metadata"]["height_levels"] == 5
+        assert result["metadata"]["min_height_mm"] == 10.0
+        assert result["metadata"]["max_height_mm"] == 50.0
+
+    def test_vertices_z_clamped_above_zero(self):
+        result = process_image(
+            image_bytes=make_image_bytes(color=(0, 0, 0), h=50, w=50),
+            width_mm=100.0, height_mm=100.0,
+            min_box_size_mm=20.0, k_colors=1,
+            min_height_mm=0.5, max_height_mm=5.0,
+            algorithm="luminance",
+            height_levels=3,
+        )
+        for cell in result["grid"]:
+            for z in cell["top_vertices_z"]:
+                assert z >= 0.1

@@ -15,6 +15,9 @@ interface Metadata {
   num_rows: number;
   box_size_mm: number;
   R: number;
+  min_height_mm?: number;
+  max_height_mm?: number;
+  height_levels?: number;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -28,6 +31,7 @@ export default function Home() {
   const [minHeightMm, setMinHeightMm] = useState<number>(10);
   
   const [algorithm, setAlgorithm] = useState<"depth" | "luminance">("depth");
+  const [heightLevels, setHeightLevels] = useState<number>(0);
   
   const [resolutionMode, setResolutionMode] = useState<"size" | "count">("count");
   const [boxSizeMm, setBoxSizeMm] = useState<number>(15);
@@ -97,6 +101,7 @@ export default function Home() {
     formData.append("min_height_mm", minHeightMm.toString());
     formData.append("max_height_mm", maxHeightMm.toString());
     formData.append("algorithm", algorithm);
+    formData.append("height_levels", heightLevels.toString());
 
     try {
       const res = await fetch(`${API_URL}/api/process`, {
@@ -256,6 +261,33 @@ export default function Home() {
             </div>
 
             <div>
+              <label className="block text-sm font-bold uppercase mb-2">Height Levels</label>
+              <div className="flex items-center gap-3 mb-2">
+                <label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input
+                    type="checkbox"
+                    checked={heightLevels >= 2}
+                    onChange={(e) => setHeightLevels(e.target.checked ? 4 : 0)}
+                    className="accent-black"
+                  />
+                  Quantize to N levels
+                </label>
+              </div>
+              {heightLevels >= 2 && (
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="2" max="10" step="1"
+                    value={heightLevels}
+                    onChange={(e) => setHeightLevels(Number(e.target.value))}
+                    className="flex-1 accent-black"
+                  />
+                  <span className="font-mono text-sm w-8 text-right">{heightLevels}</span>
+                </div>
+              )}
+            </div>
+
+            <div>
               <label className="block text-sm font-bold uppercase mb-2">2. Resolution Mode</label>
               <div className="flex gap-4 mb-2">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -356,6 +388,11 @@ export default function Home() {
                 <li>Rows: {metadata.num_rows}</li>
                 <li>Pieces: {gridData?.length || metadata.num_cols * metadata.num_rows}</li>
                 <li>Box Size: {metadata.box_size_mm} mm</li>
+                {metadata.height_levels && metadata.height_levels >= 2 ? (
+                  <li>Height Levels: {metadata.height_levels} ({metadata.min_height_mm}–{metadata.max_height_mm} mm)</li>
+                ) : (
+                  <li>Height: Continuous ({metadata.min_height_mm}–{metadata.max_height_mm} mm)</li>
+                )}
               </ul>
 
               <button 
