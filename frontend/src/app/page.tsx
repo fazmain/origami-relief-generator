@@ -182,6 +182,13 @@ export default function Home() {
     }
   };
 
+  const handleColorChange = (oldColor: string, newColor: string) => {
+    if (!gridData || oldColor === newColor) return;
+    setGridData(gridData.map((cell) =>
+      cell.color === oldColor ? { ...cell, color: newColor } : cell
+    ));
+  };
+
   const handleDownloadPoster = async () => {
     if (!gridData || !metadata) return;
     
@@ -439,6 +446,56 @@ export default function Home() {
                 Download SVG (Laser Cut)
               </button>
               
+              {gridData && (() => {
+                const freq = new Map<string, number>();
+                gridData.forEach((c) => freq.set(c.color, (freq.get(c.color) || 0) + 1));
+                const palette = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]);
+                return (
+                  <div className="mt-6 border-t border-black pt-4">
+                    <h3 className="font-bold mb-3 uppercase">Color Palette Editor</h3>
+                    <p className="text-xs text-gray-500 mb-3">Click swatch to recolor. Use Merge to combine two colors.</p>
+                    <div className="space-y-2">
+                      {palette.map(([color, count]) => (
+                        <div key={color} className="flex items-center gap-2">
+                          <label className="relative cursor-pointer flex-shrink-0" title="Click to recolor">
+                            <span
+                              className="block w-8 h-8 border-2 border-black"
+                              style={{ backgroundColor: color }}
+                            />
+                            <input
+                              type="color"
+                              value={color}
+                              onChange={(e) => handleColorChange(color, e.target.value)}
+                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                            />
+                          </label>
+                          <span className="font-mono text-xs text-gray-600 w-14">{color}</span>
+                          <span className="text-xs text-gray-500 flex-1">{count}×</span>
+                          <select
+                            defaultValue=""
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                handleColorChange(color, e.target.value);
+                                e.target.value = "";
+                              }
+                            }}
+                            className="text-xs border border-black px-1 py-1 bg-white"
+                            title="Merge into another color"
+                          >
+                            <option value="">Merge→</option>
+                            {palette.filter(([c]) => c !== color).map(([c]) => (
+                              <option key={c} value={c} style={{ backgroundColor: c }}>
+                                {c}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="mt-6 border-t border-black pt-4">
                 <h3 className="font-bold mb-4 uppercase">3D Viewer Controls</h3>
                 
