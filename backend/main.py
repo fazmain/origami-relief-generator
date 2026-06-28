@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 
 from processing import process_image
 from pdf_generator import generate_pdf, generate_poster
+from svg_export import generate_svg
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,26 @@ async def generate_pdf_poster_endpoint(
     except Exception:
         logger.error("Poster generation failed", exc_info=True)
         raise HTTPException(status_code=500, detail="Poster generation failed")
+
+
+@app.post("/api/svg")
+async def generate_svg_endpoint(payload: dict = Body(...)):
+    grid_data = payload.get("grid")
+    metadata = payload.get("metadata")
+    if not grid_data or not metadata:
+        raise HTTPException(status_code=400, detail="Missing grid or metadata")
+
+    try:
+        svg_content = generate_svg(grid_data, metadata)
+        from fastapi.responses import Response
+        return Response(
+            content=svg_content,
+            media_type="image/svg+xml",
+            headers={"Content-Disposition": "attachment; filename=origami_cut_nets.svg"},
+        )
+    except Exception:
+        logger.error("SVG generation failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="SVG generation failed")
 
 
 if __name__ == "__main__":

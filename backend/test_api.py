@@ -160,3 +160,32 @@ class TestPosterEndpoint:
     def test_missing_grid_returns_400(self):
         r = client.post("/api/pdf_poster", json={"metadata": MINIMAL_GRID_PAYLOAD["metadata"]})
         assert r.status_code == 400
+
+
+class TestSvgEndpoint:
+    def test_valid_payload_returns_svg(self):
+        r = client.post("/api/svg", json=MINIMAL_GRID_PAYLOAD)
+        assert r.status_code == 200
+        assert "svg" in r.headers["content-type"]
+
+    def test_svg_body_contains_xml(self):
+        r = client.post("/api/svg", json=MINIMAL_GRID_PAYLOAD)
+        assert b"<?xml" in r.content
+        assert b"<svg" in r.content
+
+    def test_svg_has_piece_id(self):
+        r = client.post("/api/svg", json=MINIMAL_GRID_PAYLOAD)
+        assert b"C0" in r.content
+
+    def test_content_disposition_attachment(self):
+        r = client.post("/api/svg", json=MINIMAL_GRID_PAYLOAD)
+        assert "attachment" in r.headers.get("content-disposition", "")
+        assert ".svg" in r.headers.get("content-disposition", "")
+
+    def test_missing_grid_returns_400(self):
+        r = client.post("/api/svg", json={"metadata": MINIMAL_GRID_PAYLOAD["metadata"]})
+        assert r.status_code == 400
+
+    def test_missing_metadata_returns_400(self):
+        r = client.post("/api/svg", json={"grid": MINIMAL_GRID_PAYLOAD["grid"]})
+        assert r.status_code == 400

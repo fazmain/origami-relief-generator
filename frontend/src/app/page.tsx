@@ -159,6 +159,29 @@ export default function Home() {
     }
   };
 
+  const handleDownloadSVG = async () => {
+    if (!gridData || !metadata) return;
+    try {
+      const res = await fetch(`${API_URL}/api/svg`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ grid: gridData, metadata }),
+      });
+      if (!res.ok) throw new Error("Failed to generate SVG");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "origami_cut_nets.svg";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: unknown) {
+      if (err instanceof Error) alert("Error: " + err.message);
+    }
+  };
+
   const handleDownloadPoster = async () => {
     if (!gridData || !metadata) return;
     
@@ -402,11 +425,18 @@ export default function Home() {
                 Download PDF Blueprint
               </button>
               
-              <button 
+              <button
                 onClick={handleDownloadPoster}
                 className="w-full mt-2 bg-white text-black border-2 border-black py-3 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
               >
                 Download 1:1 Poster Blueprint
+              </button>
+
+              <button
+                onClick={handleDownloadSVG}
+                className="w-full mt-2 bg-white text-black border-2 border-black py-3 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+              >
+                Download SVG (Laser Cut)
               </button>
               
               <div className="mt-6 border-t border-black pt-4">
