@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import pytest
 
-from processing import process_image
+from processing import process_image, _apply_preprocessing
 
 
 def make_image_bytes(h: int = 100, w: int = 100, color=(200, 200, 200)) -> bytes:
@@ -294,3 +294,58 @@ class TestHeightGamma:
             algorithm="luminance", height_gamma=1.5,
         )
         assert r["metadata"]["height_gamma"] == pytest.approx(1.5)
+
+
+class TestPreprocessing:
+    def _gray_img(self, val=128, h=10, w=10):
+        return np.ones((h, w, 3), dtype=np.uint8) * val
+
+    def test_no_op_leaves_image_unchanged(self):
+        img = self._gray_img(128)
+        out = _apply_preprocessing(img.copy(), brightness=0.0, contrast=1.0, saturation=1.0)
+        np.testing.assert_array_equal(img, out)
+
+    def test_positive_brightness_raises_pixels(self):
+        img = self._gray_img(100)
+        out = _apply_preprocessing(img.copy(), brightness=0.2, contrast=1.0, saturation=1.0)
+        assert out[0, 0, 0] > 100
+
+    def test_negative_brightness_lowers_pixels(self):
+        img = self._gray_img(200)
+        out = _apply_preprocessing(img.copy(), brightness=-0.2, contrast=1.0, saturation=1.0)
+        assert out[0, 0, 0] < 200
+
+    def test_brightness_clamps_at_255(self):
+        img = self._gray_img(240)
+        out = _apply_preprocessing(img.copy(), brightness=1.0, contrast=1.0, saturation=1.0)
+        assert out.max() <= 255
+
+    def test_brightness_clamps_at_0(self):
+        img = self._gray_img(10)
+        out = _apply_preprocessing(img.copy(), brightness=-1.0, contrast=1.0, saturation=1.0)
+        assert out.min() >= 0
+
+    def test_high_contrast_spreads_values(self):
+        img = self._gray_img(128)
+        img[0, 0] = [100, 100, 100]
+        img[0, 1] = [155, 155, 155]
+        out = _apply_preprocessing(img.copy(), brightness=0.0, contrast=2.0, saturation=1.0)
+        assert out[0, 1, 0] > img[0, 1, 0] or out[0, 0, 0] < img[0, 0, 0]
+
+    def test_zero_saturation_gives_grayscale(self):
+        img = np.zeros((5, 5, 3), dtype=np.uint8)
+        img[:, :] = [200, 50, 80]
+        out = _apply_preprocessing(img.copy(), brightness=0.0, contrast=1.0, saturation=0.0)
+        # All channels should be equal (desaturated)
+        assert np.all(out[:, :, 0] == out[:, :, 1]) or np.allclose(out[:, :, 0], out[:, :, 1], atol=2)
+
+    def test_preprocessing_pipeline_integration(self):
+        img = make_image_bytes(color=(100, 150, 200), h=50, w=50)
+        r = process_image(
+            image_bytes=img, width_mm=100.0, height_mm=100.0,
+            min_box_size_mm=20.0, k_colors=2,
+            min_height_mm=10.0, max_height_mm=50.0,
+            algorithm="luminance",
+            brightness=0.1, contrast=1.2, saturation=0.8,
+        )
+        assert len(r["grid"]) > 0

@@ -34,6 +34,9 @@ export default function Home() {
   const [algorithm, setAlgorithm] = useState<"depth" | "luminance">("depth");
   const [heightLevels, setHeightLevels] = useState<number>(0);
   const [heightGamma, setHeightGamma] = useState<number>(1.0);
+  const [brightness, setBrightness] = useState<number>(0.0);
+  const [contrast, setContrast] = useState<number>(1.0);
+  const [saturation, setSaturation] = useState<number>(1.0);
   
   const [resolutionMode, setResolutionMode] = useState<"size" | "count">("count");
   const [boxSizeMm, setBoxSizeMm] = useState<number>(15);
@@ -105,6 +108,9 @@ export default function Home() {
     formData.append("algorithm", algorithm);
     formData.append("height_levels", heightLevels.toString());
     formData.append("height_gamma", heightGamma.toString());
+    formData.append("brightness", brightness.toString());
+    formData.append("contrast", contrast.toString());
+    formData.append("saturation", saturation.toString());
 
     try {
       const res = await fetch(`${API_URL}/api/process`, {
@@ -318,6 +324,36 @@ export default function Home() {
                   <span className="font-mono text-sm w-8 text-right">{heightLevels}</span>
                 </div>
               )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold uppercase mb-2">Image Preprocessing</label>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs uppercase mb-1">Brightness: {brightness >= 0 ? "+" : ""}{brightness.toFixed(2)}</label>
+                  <input type="range" min="-1" max="1" step="0.05" value={brightness}
+                    onChange={(e) => setBrightness(Number(e.target.value))}
+                    className="w-full accent-black" />
+                </div>
+                <div>
+                  <label className="block text-xs uppercase mb-1">Contrast: {contrast.toFixed(2)}×</label>
+                  <input type="range" min="0.1" max="3" step="0.05" value={contrast}
+                    onChange={(e) => setContrast(Number(e.target.value))}
+                    className="w-full accent-black" />
+                </div>
+                <div>
+                  <label className="block text-xs uppercase mb-1">Saturation: {saturation.toFixed(2)}×</label>
+                  <input type="range" min="0" max="3" step="0.05" value={saturation}
+                    onChange={(e) => setSaturation(Number(e.target.value))}
+                    className="w-full accent-black" />
+                </div>
+                {(brightness !== 0 || contrast !== 1 || saturation !== 1) && (
+                  <button type="button" onClick={() => { setBrightness(0); setContrast(1); setSaturation(1); }}
+                    className="text-xs underline text-gray-500 hover:text-black">
+                    Reset to defaults
+                  </button>
+                )}
+              </div>
             </div>
 
             <div>

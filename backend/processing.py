@@ -68,13 +68,34 @@ def get_neighbors(c, r, num_cols, num_rows):
             neighbors.append((nc, nr))
     return neighbors
 
-def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors=6, min_height_mm=10, max_height_mm=50, algorithm="depth", height_levels=0, height_gamma=1.0):
+def _apply_preprocessing(img: np.ndarray, brightness: float, contrast: float, saturation: float) -> np.ndarray:
+    """Apply brightness/contrast/saturation to an RGB uint8 image."""
+    # Brightness: additive offset (-255..255 mapped from -1..1)
+    if brightness != 0.0:
+        offset = int(brightness * 255)
+        img = np.clip(img.astype(np.int16) + offset, 0, 255).astype(np.uint8)
+
+    # Contrast: multiplicative around mid-gray (factor 0..2, 1=no change)
+    if contrast != 1.0:
+        img = np.clip((img.astype(np.float32) - 128) * contrast + 128, 0, 255).astype(np.uint8)
+
+    # Saturation: adjust in HSV
+    if saturation != 1.0:
+        hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV).astype(np.float32)
+        hsv[:, :, 1] = np.clip(hsv[:, :, 1] * saturation, 0, 255)
+        img = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2RGB)
+
+    return img
+
+
+def process_image(image_bytes, width_mm, height_mm, min_box_size_mm=15, k_colors=6, min_height_mm=10, max_height_mm=50, algorithm="depth", height_levels=0, height_gamma=1.0, brightness=0.0, contrast=1.0, saturation=1.0):
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if img is None:
         raise ValueError("Invalid image file")
 
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = _apply_preprocessing(img, brightness, contrast, saturation)
 
     img_h, img_w = img.shape[:2]
     target_aspect = width_mm / height_mm
