@@ -8,7 +8,6 @@ Each cell is rendered as:
 """
 
 import math
-from typing import Optional
 import numpy as np
 
 
@@ -30,18 +29,23 @@ def _poly_path(pts) -> str:
     return f"M {coords} Z"
 
 
-def _unfolded_paths(exterior_coords, top_vertices_z, T=5.0):
+def _unfolded_paths(exterior_coords, top_vertices_z, T=5.0, taper=0.0):
     """
     Compute 2D unfolded net paths for one piece.
     Returns (cut_paths, score_paths) — each a list of SVG 'd' strings.
+    Taper (0-1) scales the top polygon toward centroid, producing trapezoidal walls.
     """
     base = [np.array(p, dtype=float) for p in exterior_coords]
     n = len(base)
-    cut_paths = []
-    score_paths = []
+    s = max(0.0, min(1.0, 1.0 - taper))
 
-    # Base polygon
-    cut_paths.append(_poly_path(base))
+    # Centroid for taper scaling
+    cx = sum(p[0] for p in base) / n
+    cy = sum(p[1] for p in base) / n
+    centroid = np.array([cx, cy])
+
+    cut_paths = [_poly_path(base)]
+    score_paths = []
 
     for i in range(n):
         next_i = (i + 1) % n
@@ -51,19 +55,31 @@ def _unfolded_paths(exterior_coords, top_vertices_z, T=5.0):
         if edge_len < 1e-6:
             continue
         u = edge / edge_len
-        v = np.array([u[1], -u[0]])  # outward normal
+        v = np.array([u[1], -u[0]])
 
         h1 = float(top_vertices_z[i])
         h2 = float(top_vertices_z[next_i])
 
-        # Wall trapezoid
-        w3 = p2 + v * h2
-        w4 = p1 + v * h1
+        if taper < 1e-6:
+            w3 = p2 + v * h2
+            w4 = p1 + v * h1
+        else:
+            # q_i = centroid + s*(p_i - centroid) = s*p_i + (1-s)*centroid
+            # Δq1 from p1 in 3D: ((s-1)*(p1-centroid), h1)
+            dq1 = (s - 1.0) * (p1 - centroid)
+            u_q1 = float(np.dot(dq1, u))
+            v_q1 = math.sqrt(max(0.0, np.dot(dq1, dq1) + h1 * h1 - u_q1 * u_q1))
+            # Δq2 from p1: (s*p2 + (1-s)*centroid - p1, h2)
+            dq2 = s * p2 + (1.0 - s) * centroid - p1
+            u_q2 = float(np.dot(dq2, u))
+            v_q2 = math.sqrt(max(0.0, np.dot(dq2, dq2) + h2 * h2 - u_q2 * u_q2))
+            w4 = p1 + u_q1 * u + v_q1 * v
+            w3 = p1 + u_q2 * u + v_q2 * v
+
         wall_pts = [p1, p2, w3, w4]
         cut_paths.append(_poly_path(wall_pts))
         score_paths.append(f"M {p1[0]:.3f},{p1[1]:.3f} L {p2[0]:.3f},{p2[1]:.3f}")
 
-        # Tab
         t3 = w3 + u * T - v * (T * 0.5)
         t4 = w4 + u * T + v * (T * 0.5)
         cut_paths.append(_poly_path([w4, w3, t3, t4]))
@@ -72,7 +88,7 @@ def _unfolded_paths(exterior_coords, top_vertices_z, T=5.0):
     return cut_paths, score_paths
 
 
-def generate_svg(grid_data: list, metadata: dict) -> str:
+def generate_svg(grid_data: list, metadata: dict, taper: float = 0.0) -> str:
     """
     Generate a flat-layout SVG of all cut nets, arranged in rows.
     1 SVG unit = 1 mm. Suitable for laser cutters.
@@ -111,6 +127,7 @@ def generate_svg(grid_data: list, metadata: dict) -> str:
         cut_paths, score_paths = _unfolded_paths(
             [(p[0] - cx + piece_w / 2, p[1] - cy + piece_h / 2) for p in coords],
             top_z,
+            taper=taper,
         )
 
         # Shift all paths to canvas position

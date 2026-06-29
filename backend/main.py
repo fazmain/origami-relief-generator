@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from processing import process_image
 from pdf_generator import generate_pdf, generate_poster, generate_backboard, generate_tiled_pdf
 from svg_export import generate_svg
+from pattern_generator import generate_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,7 @@ async def generate_pdf_endpoint(
 ):
     grid_data = payload.get("grid")
     metadata = payload.get("metadata")
+    taper = max(0.0, min(1.0, float(payload.get("taper", 0.0))))
     if not grid_data or not metadata:
         raise HTTPException(status_code=400, detail="Missing grid or metadata")
 
@@ -103,7 +105,7 @@ async def generate_pdf_endpoint(
         output_path = tmp.name
         tmp.close()
 
-        generate_pdf(grid_data, metadata, output_path)
+        generate_pdf(grid_data, metadata, output_path, taper=taper)
         background_tasks.add_task(os.unlink, output_path)
 
         return FileResponse(
@@ -153,6 +155,7 @@ async def generate_tiled_pdf_endpoint(
     metadata = payload.get("metadata")
     tile_width_mm = float(payload.get("tile_width_mm", 210))
     tile_height_mm = float(payload.get("tile_height_mm", 297))
+    taper = max(0.0, min(1.0, float(payload.get("taper", 0.0))))
     if not grid_data or not metadata:
         raise HTTPException(status_code=400, detail="Missing grid or metadata")
 
@@ -163,7 +166,8 @@ async def generate_tiled_pdf_endpoint(
 
         generate_tiled_pdf(grid_data, metadata, output_path,
                            tile_width_mm=max(50, min(1000, tile_width_mm)),
-                           tile_height_mm=max(50, min(1000, tile_height_mm)))
+                           tile_height_mm=max(50, min(1000, tile_height_mm)),
+                           taper=taper)
         background_tasks.add_task(os.unlink, output_path)
 
         return FileResponse(
@@ -211,8 +215,9 @@ async def generate_svg_endpoint(payload: dict = Body(...)):
     if not grid_data or not metadata:
         raise HTTPException(status_code=400, detail="Missing grid or metadata")
 
+    taper = max(0.0, min(1.0, float(payload.get("taper", 0.0))))
     try:
-        svg_content = generate_svg(grid_data, metadata)
+        svg_content = generate_svg(grid_data, metadata, taper=taper)
         from fastapi.responses import Response
         return Response(
             content=svg_content,
@@ -222,6 +227,40 @@ async def generate_svg_endpoint(payload: dict = Body(...)):
     except Exception:
         logger.error("SVG generation failed", exc_info=True)
         raise HTTPException(status_code=500, detail="SVG generation failed")
+
+
+@app.post("/api/pattern")
+async def pattern_endpoint(payload: dict = Body(...)):
+    pattern = payload.get("pattern", "waves")
+    if pattern not in ("waves", "radial", "spiral", "spikes", "grid"):
+        raise HTTPException(status_code=400, detail=f"Unknown pattern: {pattern}")
+
+    try:
+        width_mm = max(10.0, min(5000.0, float(payload.get("width_mm", 300))))
+        height_mm = max(10.0, min(5000.0, float(payload.get("height_mm", 300))))
+        box_size_mm = max(5.0, min(200.0, float(payload.get("box_size_mm", 15))))
+        min_height_mm = max(0.0, float(payload.get("min_height_mm", 5)))
+        max_height_mm = max(min_height_mm + 1.0, float(payload.get("max_height_mm", 50)))
+        k_colors = max(1, min(12, int(payload.get("k_colors", 5))))
+        wavelength = max(5.0, min(2000.0, float(payload.get("wavelength", 60))))
+        num_arms = max(1, min(20, int(payload.get("num_arms", 6))))
+        height_levels = max(0, min(20, int(payload.get("height_levels", 0))))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    result = generate_pattern(
+        pattern=pattern,
+        width_mm=width_mm,
+        height_mm=height_mm,
+        box_size_mm=box_size_mm,
+        min_height_mm=min_height_mm,
+        max_height_mm=max_height_mm,
+        k_colors=k_colors,
+        wavelength=wavelength,
+        num_arms=num_arms,
+        height_levels=height_levels,
+    )
+    return result
 
 
 if __name__ == "__main__":

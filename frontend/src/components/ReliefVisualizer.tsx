@@ -25,16 +25,17 @@ type ReliefVisualizerProps = {
   explodeFactor?: number;
   sunAzimuth?: number;
   sunElevation?: number;
+  taper?: number;
 };
 
-function PolygonPrism({ cell, offsetX, offsetZ, explodeFactor = 0 }: { cell: CellData; offsetX: number; offsetZ: number; explodeFactor?: number }) {
+function PolygonPrism({ cell, offsetX, offsetZ, explodeFactor = 0, taper = 0 }: { cell: CellData; offsetX: number; offsetZ: number; explodeFactor?: number; taper?: number }) {
   const { geometry, meshPosition } = useMemo(() => {
     const geo = new THREE.BufferGeometry();
     const coords = cell.exterior_coords;
     if (!coords || coords.length < 3) return { geometry: geo, meshPosition: [0, 0, 0] as [number, number, number] };
 
     const num_sides = coords.length;
-    
+
     // Scale slightly towards centroid for physical gap effect
     let cx = 0, cy = 0;
     for(let i = 0; i < num_sides; i++) {
@@ -43,7 +44,7 @@ function PolygonPrism({ cell, offsetX, offsetZ, explodeFactor = 0 }: { cell: Cel
     }
     cx /= num_sides;
     cy /= num_sides;
-    
+
     const gapScale = 0.97;
     const scaledCoords = coords.map(p => [
         cx + (p[0] - cx) * gapScale,
@@ -60,10 +61,13 @@ function PolygonPrism({ cell, offsetX, offsetZ, explodeFactor = 0 }: { cell: Cel
     for(let i = 0; i < num_sides; i++) {
         vertices.push(scaledCoords[i][0] - offsetX, 0, scaledCoords[i][1] - offsetZ);
     }
-    
-    // Top vertices (index num_sides to 2*num_sides - 1), Y = top_z[i]
+
+    // Top vertices scaled toward centroid by taper (1.0 = fully pointed)
+    const topScale = 1.0 - taper;
     for(let i = 0; i < num_sides; i++) {
-        vertices.push(scaledCoords[i][0] - offsetX, cell.top_vertices_z[i], scaledCoords[i][1] - offsetZ);
+        const tx = cx + (scaledCoords[i][0] - cx) * topScale;
+        const tz = cy + (scaledCoords[i][1] - cy) * topScale;
+        vertices.push(tx - offsetX, cell.top_vertices_z[i], tz - offsetZ);
     }
 
     // Indices for Bottom Face (normals pointing down)
@@ -100,7 +104,7 @@ function PolygonPrism({ cell, offsetX, offsetZ, explodeFactor = 0 }: { cell: Cel
     const meshPosition = [worldCx * explodeFactor, 0, worldCz * explodeFactor] as [number, number, number];
 
     return { geometry: geo, meshPosition };
-  }, [cell, offsetX, offsetZ, explodeFactor]);
+  }, [cell, offsetX, offsetZ, explodeFactor, taper]);
 
   return (
     <mesh geometry={geometry} position={meshPosition} castShadow receiveShadow>
@@ -109,7 +113,7 @@ function PolygonPrism({ cell, offsetX, offsetZ, explodeFactor = 0 }: { cell: Cel
   );
 }
 
-export default function ReliefVisualizer({ grid, metadata, explodeFactor = 0, sunAzimuth = 45, sunElevation = 45 }: ReliefVisualizerProps) {
+export default function ReliefVisualizer({ grid, metadata, explodeFactor = 0, sunAzimuth = 45, sunElevation = 45, taper = 0 }: ReliefVisualizerProps) {
   const { num_cols, num_rows, R } = metadata;
 
   // Staggered layout offsets
@@ -152,7 +156,7 @@ export default function ReliefVisualizer({ grid, metadata, explodeFactor = 0, su
         </mesh>
         
         {grid.map((cell) => (
-          <PolygonPrism key={cell.id} cell={cell} offsetX={offsetX} offsetZ={offsetZ} explodeFactor={explodeFactor} />
+          <PolygonPrism key={cell.id} cell={cell} offsetX={offsetX} offsetZ={offsetZ} explodeFactor={explodeFactor} taper={taper} />
         ))}
 
         <Grid 

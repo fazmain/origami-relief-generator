@@ -29,12 +29,12 @@
 - [x] **Relief statistics panel** — After processing: piece count, color count, average height, estimated paper usage (A4 sheets), fold time estimate, total fold count.
 - [x] **Backboard/frame generation** — 1:1 scale PDF gluing guide showing each cell outline with piece ID and grid position label. Acts as a physical assembly template.
 - [x] **Save/load project** — Download/upload `.origami` JSON project file (grid + all settings) to resume work across sessions.
-- [ ] **Cone/pyramid prism shapes** — Tapered pieces (wider base, pointed top) cast much more dramatic shadows. Paragami "Coral Sponge" / "Whirl Peak" style.
+- [x] **Cone/pyramid prism shapes** — Tapered pieces (wider base, pointed top) cast much more dramatic shadows. Paragami "Coral Sponge" / "Whirl Peak" style.
 
 ---
 
 ## Tier 4 — Advanced
 
-- [ ] **Parametric pattern designs** — Non-photo-derived geometric motifs (waves, spirals, radial spikes) composable as layers on top of or instead of a photo. How paragami's signature pieces work.
+- [x] **Parametric pattern designs** — Non-photo-derived geometric motifs (waves, spirals, radial spikes) composable as layers on top of or instead of a photo. How paragami's signature pieces work.
 - [x] **Tiling/modular panels** — Split large artworks into independently assembleable panels (e.g. A4 tiles) that tile together for very large installations. Configurable tile size; one PDF page group per tile.
-- [ ] **LED compatibility mode** — Design consideration: hollow bases, minimum spacing for LED strip placement underneath pieces.
+

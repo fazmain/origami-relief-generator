@@ -43,6 +43,12 @@ export default function Home() {
   const [boxSizeMm, setBoxSizeMm] = useState<number>(15);
   const [targetPieces, setTargetPieces] = useState<number>(500);
 
+  // Pattern Mode
+  const [inputMode, setInputMode] = useState<"photo" | "pattern">("photo");
+  const [patternType, setPatternType] = useState<"waves" | "radial" | "spiral" | "spikes" | "grid">("waves");
+  const [patternWavelength, setPatternWavelength] = useState<number>(60);
+  const [patternNumArms, setPatternNumArms] = useState<number>(6);
+
   const [loading, setLoading] = useState(false);
   
   const [gridData, setGridData] = useState<CellData[] | null>(null);
@@ -53,6 +59,7 @@ export default function Home() {
   const [explodeFactor, setExplodeFactor] = useState<number>(0);
   const [sunAzimuth, setSunAzimuth] = useState<number>(45);
   const [sunElevation, setSunElevation] = useState<number>(45);
+  const [taper, setTaper] = useState<number>(0.0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
@@ -139,14 +146,57 @@ export default function Home() {
     }
   };
 
+  const handleGeneratePattern = async () => {
+    setLoading(true);
+    setError("");
+    setGridData(null);
+    let finalBoxSize = boxSizeMm;
+    if (resolutionMode === "count") {
+      const canvasArea = width * height;
+      const hexAreaFactor = 1.5 * Math.sqrt(3);
+      const R = Math.sqrt(canvasArea / (targetPieces * hexAreaFactor));
+      finalBoxSize = 2 * R;
+    }
+    try {
+      const res = await fetch(`${API_URL}/api/pattern`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pattern: patternType,
+          width_mm: width,
+          height_mm: height,
+          box_size_mm: finalBoxSize,
+          min_height_mm: minHeightMm,
+          max_height_mm: maxHeightMm,
+          k_colors: 5,
+          wavelength: patternWavelength,
+          num_arms: patternNumArms,
+          height_levels: heightLevels,
+        }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Failed to generate pattern");
+      }
+      const data = await res.json();
+      setGridData(data.grid);
+      setMetadata(data.metadata);
+    } catch (err: unknown) {
+      if (err instanceof Error) setError(err.message);
+      else setError("An unknown error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDownloadPDF = async () => {
     if (!gridData || !metadata) return;
-    
+
     try {
       const res = await fetch(`${API_URL}/api/pdf`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ grid: gridData, metadata }),
+        body: JSON.stringify({ grid: gridData, metadata, taper }),
       });
 
       if (!res.ok) {
@@ -176,7 +226,7 @@ export default function Home() {
       const res = await fetch(`${API_URL}/api/svg`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ grid: gridData, metadata }),
+        body: JSON.stringify({ grid: gridData, metadata, taper }),
       });
       if (!res.ok) throw new Error("Failed to generate SVG");
       const blob = await res.blob();
@@ -197,7 +247,7 @@ export default function Home() {
     if (!gridData || !metadata) return;
     const project = {
       version: 1,
-      settings: { width, height, aspectRatio, minHeightMm, maxHeightMm, algorithm, shape, heightLevels, heightGamma, brightness, contrast, saturation, resolutionMode, boxSizeMm, targetPieces },
+      settings: { width, height, aspectRatio, minHeightMm, maxHeightMm, algorithm, shape, heightLevels, heightGamma, brightness, contrast, saturation, resolutionMode, boxSizeMm, targetPieces, taper },
       metadata,
       gridData,
     };
@@ -239,6 +289,7 @@ export default function Home() {
         if (s.resolutionMode) setResolutionMode(s.resolutionMode);
         if (s.boxSizeMm !== undefined) setBoxSizeMm(s.boxSizeMm);
         if (s.targetPieces !== undefined) setTargetPieces(s.targetPieces);
+        if (s.taper !== undefined) setTaper(s.taper);
         setGridData(project.gridData);
         setMetadata(project.metadata);
         setError("");
@@ -266,7 +317,7 @@ export default function Home() {
       const res = await fetch(`${API_URL}/api/pdf_tiled`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ grid: gridData, metadata, tile_width_mm: tileWidthMm, tile_height_mm: tileHeightMm }),
+        body: JSON.stringify({ grid: gridData, metadata, tile_width_mm: tileWidthMm, tile_height_mm: tileHeightMm, taper }),
       });
       if (!res.ok) throw new Error("Failed to generate tiled PDF");
       const blob = await res.blob();
@@ -347,15 +398,72 @@ export default function Home() {
         {/* Sidebar Controls */}
         <div className="w-full md:w-1/3 p-6 border-r-2 border-black flex flex-col gap-6 overflow-y-auto">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {/* Input Mode Toggle */}
+            <div>
+              <label className="block text-sm font-bold uppercase mb-2">Input Mode</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="inputMode" value="photo"
+                    checked={inputMode === "photo"} onChange={() => setInputMode("photo")}
+                    className="accent-black" />
+                  <span>Photo</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="inputMode" value="pattern"
+                    checked={inputMode === "pattern"} onChange={() => setInputMode("pattern")}
+                    className="accent-black" />
+                  <span>Parametric Pattern</span>
+                </label>
+              </div>
+            </div>
+
+            {inputMode === "photo" && (
             <div>
               <label className="block text-sm font-bold uppercase mb-2">1. Upload Image</label>
-              <input 
-                type="file" 
+              <input
+                type="file"
                 accept="image/*"
                 onChange={handleFileChange}
                 className="w-full border-2 border-black p-2 file:mr-4 file:py-2 file:px-4 file:rounded-none file:border-0 file:bg-black file:text-white hover:file:bg-gray-800"
               />
             </div>
+            )}
+
+            {inputMode === "pattern" && (
+            <div className="flex flex-col gap-3">
+              <label className="block text-sm font-bold uppercase mb-1">1. Pattern Settings</label>
+              <div>
+                <label className="block text-xs uppercase mb-1">Pattern Type</label>
+                <select
+                  value={patternType}
+                  onChange={(e) => setPatternType(e.target.value as typeof patternType)}
+                  className="w-full border-2 border-black p-2 bg-white focus:outline-none"
+                >
+                  <option value="waves">Waves</option>
+                  <option value="radial">Radial</option>
+                  <option value="spiral">Spiral</option>
+                  <option value="spikes">Spikes</option>
+                  <option value="grid">Grid</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs uppercase mb-1">Wavelength (mm): {patternWavelength}</label>
+                <input type="range" min="10" max="300" step="5"
+                  value={patternWavelength}
+                  onChange={(e) => setPatternWavelength(Number(e.target.value))}
+                  className="w-full accent-black" />
+              </div>
+              {(patternType === "spiral" || patternType === "spikes") && (
+              <div>
+                <label className="block text-xs uppercase mb-1">Arms / Symmetry: {patternNumArms}</label>
+                <input type="range" min="1" max="20" step="1"
+                  value={patternNumArms}
+                  onChange={(e) => setPatternNumArms(Number(e.target.value))}
+                  className="w-full accent-black" />
+              </div>
+              )}
+            </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -547,6 +655,18 @@ export default function Home() {
                   <span>Square</span>
                 </label>
               </div>
+              <div className="mt-3">
+                <label className="block text-xs uppercase mb-1">
+                  Taper (Cone/Pyramid): {taper.toFixed(2)}
+                  <span className="text-gray-500 ml-2">{taper === 0 ? "(straight prism)" : taper >= 0.9 ? "(near-pyramid)" : "(frustum)"}</span>
+                </label>
+                <input
+                  type="range" min="0" max="1" step="0.05"
+                  value={taper}
+                  onChange={(e) => setTaper(Number(e.target.value))}
+                  className="w-full accent-black"
+                />
+              </div>
             </div>
 
             <div>
@@ -577,13 +697,24 @@ export default function Home() {
               </div>
             </div>
 
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-black text-white py-3 font-bold uppercase tracking-wider hover:bg-gray-800 disabled:opacity-50 mt-4"
-            >
-              {loading ? "Processing..." : "Generate 3D Grid"}
-            </button>
+            {inputMode === "photo" ? (
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-black text-white py-3 font-bold uppercase tracking-wider hover:bg-gray-800 disabled:opacity-50 mt-4"
+              >
+                {loading ? "Processing..." : "Generate 3D Grid"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={loading}
+                onClick={handleGeneratePattern}
+                className="w-full bg-black text-white py-3 font-bold uppercase tracking-wider hover:bg-gray-800 disabled:opacity-50 mt-4"
+              >
+                {loading ? "Generating..." : "Generate Pattern Grid"}
+              </button>
+            )}
           </form>
 
           <div className="flex gap-2">
@@ -788,12 +919,13 @@ export default function Home() {
         {/* 3D Visualizer Area */}
         <section className="flex-1 p-6 h-[600px] md:h-auto">
           {gridData && metadata ? (
-            <ReliefVisualizer 
-              grid={gridData} 
-              metadata={metadata} 
+            <ReliefVisualizer
+              grid={gridData}
+              metadata={metadata}
               explodeFactor={explodeFactor}
               sunAzimuth={sunAzimuth}
               sunElevation={sunElevation}
+              taper={taper}
             />
           ) : (
             <div className="w-full h-full border-2 border-dashed border-gray-400 flex items-center justify-center text-gray-400 font-mono">

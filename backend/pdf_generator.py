@@ -8,9 +8,10 @@ from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
 
-def get_piece_geometry(box_size_mm, top_vertices_z, exterior_coords=None):
+def get_piece_geometry(box_size_mm, top_vertices_z, exterior_coords=None, taper=0.0):
     R = (box_size_mm / 2.0) * mm
     T = 5 * mm
+    s = max(0.0, min(1.0, 1.0 - taper))  # top polygon scale (1=no taper, 0=point)
 
     if exterior_coords is None:
         hex2d = [
@@ -46,8 +47,24 @@ def get_piece_geometry(box_size_mm, top_vertices_z, exterior_coords=None):
         h1 = top_vertices_z[i] * mm
         h2 = top_vertices_z[next_i] * mm
         w_p1, w_p2 = p1, p2
-        w_p3 = p2 + v_dir * h2
-        w_p4 = p1 + v_dir * h1
+
+        if taper < 1e-6:
+            w_p3 = p2 + v_dir * h2
+            w_p4 = p1 + v_dir * h1
+        else:
+            # Top vertices in 3D (centroid at origin since base_pts are centered):
+            # q1 = (s*p1, h1),  q2 = (s*p2, h2)
+            # Unfold from fold axis p1→p2 onto paper outward in v_dir.
+            # For q1: Δ from p1 in 3D = ((s-1)*p1, h1)
+            dq1 = (s - 1) * p1
+            u_q1 = float(np.dot(dq1, u_dir))
+            v_q1 = math.sqrt(max(0.0, np.dot(dq1, dq1) + h1 * h1 - u_q1 * u_q1))
+            # For q2: Δ from p1 in 3D = (s*p2 - p1, h2)
+            dq2 = s * p2 - p1
+            u_q2 = float(np.dot(dq2, u_dir))
+            v_q2 = math.sqrt(max(0.0, np.dot(dq2, dq2) + h2 * h2 - u_q2 * u_q2))
+            w_p4 = p1 + u_q1 * u_dir + v_q1 * v_dir
+            w_p3 = p1 + u_q2 * u_dir + v_q2 * v_dir
 
         geom["walls"].append([w_p1, w_p2, w_p3, w_p4])
         geom["fold_lines"].append((w_p1, w_p2))
@@ -63,7 +80,8 @@ def get_piece_geometry(box_size_mm, top_vertices_z, exterior_coords=None):
         geom["fold_lines"].append((tab_p1, tab_p2))
         all_points.extend([tab_p3, tab_p4])
 
-    V = [np.array([base_pts[i][0], base_pts[i][1], top_vertices_z[i] * mm]) for i in range(num_sides)]
+    # Top cap: use tapered 3D vertex positions (centroid at origin)
+    V = [np.array([s * base_pts[i][0], s * base_pts[i][1], top_vertices_z[i] * mm]) for i in range(num_sides)]
     v01 = V[1] - V[0]
     v02 = V[2] - V[0]
     normal = np.cross(v01, v02)
@@ -219,7 +237,7 @@ def _draw_bom_page(c, grid_data, metadata, page_width, page_height, margin_mm):
         c.drawString(col_x[0], y, f"Height levels: {level_str}")
 
 
-def generate_pdf(grid_data, metadata, output_path="blueprint.pdf"):
+def generate_pdf(grid_data, metadata, output_path="blueprint.pdf", taper=0.0):
     c = canvas.Canvas(output_path, pagesize=letter)
     page_width, page_height = letter
     page_w_mm = page_width / mm
@@ -242,7 +260,7 @@ def generate_pdf(grid_data, metadata, output_path="blueprint.pdf"):
     box_size = metadata.get("box_size_mm", 15)
     pieces = []
     for item in grid_data:
-        geom = get_piece_geometry(box_size, item["top_vertices_z"], item.get("exterior_coords"))
+        geom = get_piece_geometry(box_size, item["top_vertices_z"], item.get("exterior_coords"), taper=taper)
         geom["id"] = item["id"]
         geom["color"] = item["color"]
         geom["grid_pos"] = item.get("grid_pos")
@@ -457,7 +475,7 @@ def generate_backboard(grid_data, metadata, output_path="backboard.pdf"):
     return output_path
 
 
-def generate_tiled_pdf(grid_data, metadata, output_path="tiled.pdf", tile_width_mm=210, tile_height_mm=297):
+def generate_tiled_pdf(grid_data, metadata, output_path="tiled.pdf", tile_width_mm=210, tile_height_mm=297, taper=0.0):
     """
     Split grid into spatial tiles. One PDF page group per tile, containing cut nets
     for pieces whose centroid falls in that tile. Tile coordinates printed in header.
@@ -510,7 +528,7 @@ def generate_tiled_pdf(grid_data, metadata, output_path="tiled.pdf", tile_width_
         row_h = 0
 
         for item in sorted(items, key=lambda p: (p["color"], p["height_mm"])):
-            geom = get_piece_geometry(box_size, item["top_vertices_z"], item.get("exterior_coords"))
+            geom = get_piece_geometry(box_size, item["top_vertices_z"], item.get("exterior_coords"), taper=taper)
             geom["id"] = item["id"]
             geom["color"] = item["color"]
             geom["grid_pos"] = item.get("grid_pos")

@@ -146,6 +146,15 @@ class TestPdfEndpoint:
         r = client.post("/api/pdf", json={})
         assert r.status_code == 400
 
+    def test_taper_half_returns_pdf(self):
+        r = client.post("/api/pdf", json={**MINIMAL_GRID_PAYLOAD, "taper": 0.5})
+        assert r.status_code == 200
+        assert "application/pdf" in r.headers["content-type"]
+
+    def test_taper_full_returns_pdf(self):
+        r = client.post("/api/pdf", json={**MINIMAL_GRID_PAYLOAD, "taper": 1.0})
+        assert r.status_code == 200
+
 
 class TestPosterEndpoint:
     def test_valid_payload_returns_pdf(self):
@@ -167,6 +176,11 @@ class TestSvgEndpoint:
         r = client.post("/api/svg", json=MINIMAL_GRID_PAYLOAD)
         assert r.status_code == 200
         assert "svg" in r.headers["content-type"]
+
+    def test_taper_half_returns_svg(self):
+        r = client.post("/api/svg", json={**MINIMAL_GRID_PAYLOAD, "taper": 0.5})
+        assert r.status_code == 200
+        assert b"<svg" in r.content
 
     def test_svg_body_contains_xml(self):
         r = client.post("/api/svg", json=MINIMAL_GRID_PAYLOAD)
@@ -205,6 +219,12 @@ class TestTiledPdfEndpoint:
     def test_default_tile_size_works(self):
         r = client.post("/api/pdf_tiled", json=MINIMAL_GRID_PAYLOAD)
         assert r.status_code == 200
+
+    def test_taper_tiled_pdf(self):
+        payload = {**MINIMAL_GRID_PAYLOAD, "tile_width_mm": 150, "tile_height_mm": 200, "taper": 0.7}
+        r = client.post("/api/pdf_tiled", json=payload)
+        assert r.status_code == 200
+        assert "application/pdf" in r.headers["content-type"]
 
 
 class TestBackboardEndpoint:
