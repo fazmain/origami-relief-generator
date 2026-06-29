@@ -388,13 +388,13 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-black font-sans flex flex-col">
+    <div className="h-screen overflow-hidden bg-white text-black font-sans flex flex-col">
       <header className="border-b-2 border-black p-6">
         <h1 className="text-3xl font-bold tracking-tight uppercase">Origami Relief Generator</h1>
         <p className="text-gray-600 mt-1">Image to 3D Physical Blueprint</p>
       </header>
 
-      <main className="flex-1 flex flex-col md:flex-row">
+      <main className="flex-1 overflow-hidden flex flex-col md:flex-row">
         {/* Sidebar Controls */}
         <div className="w-full md:w-1/3 p-6 border-r-2 border-black flex flex-col gap-6 overflow-y-auto">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -468,9 +468,9 @@ export default function Home() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-bold uppercase mb-2">Width (mm)</label>
-                <input 
-                  type="number" 
-                  value={width} 
+                <input
+                  type="number"
+                  value={width}
                   onChange={(e) => {
                     const val = Number(e.target.value);
                     setWidth(val);
@@ -481,9 +481,9 @@ export default function Home() {
               </div>
               <div>
                 <label className="block text-sm font-bold uppercase mb-2">Height (mm)</label>
-                <input 
-                  type="number" 
-                  value={height} 
+                <input
+                  type="number"
+                  value={height}
                   onChange={(e) => {
                     const val = Number(e.target.value);
                     setHeight(val);
@@ -493,31 +493,33 @@ export default function Home() {
                 />
               </div>
             </div>
+            <p className="text-xs text-gray-400 -mt-2">Physical size of the finished artwork. Height auto-scales to image aspect ratio.</p>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-bold uppercase mb-2">Min Z (mm)</label>
-                <input 
-                  type="number" 
-                  value={minHeightMm} 
+                <input
+                  type="number"
+                  value={minHeightMm}
                   onChange={(e) => setMinHeightMm(Number(e.target.value))}
                   className="w-full border-2 border-black p-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
                 />
               </div>
               <div>
                 <label className="block text-sm font-bold uppercase mb-2">Max Z (mm)</label>
-                <input 
-                  type="number" 
-                  value={maxHeightMm} 
+                <input
+                  type="number"
+                  value={maxHeightMm}
                   onChange={(e) => setMaxHeightMm(Number(e.target.value))}
                   className="w-full border-2 border-black p-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
                 />
               </div>
             </div>
+            <p className="text-xs text-gray-400 -mt-2">Shortest and tallest prism in mm. Larger gap = more dramatic shadow relief.</p>
 
             <div>
               <label className="block text-sm font-bold uppercase mb-2">Height Levels</label>
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-3 mb-1">
                 <label className="flex items-center gap-2 cursor-pointer text-sm">
                   <input
                     type="checkbox"
@@ -528,6 +530,7 @@ export default function Home() {
                   Quantize to N levels
                 </label>
               </div>
+              <p className="text-xs text-gray-400 mb-2">Snap heights to discrete steps so identical pieces can be batch-cut in stacks.</p>
               {heightLevels >= 2 && (
                 <div className="flex items-center gap-3">
                   <input
@@ -543,25 +546,29 @@ export default function Home() {
             </div>
 
             <div>
-              <label className="block text-sm font-bold uppercase mb-2">Image Preprocessing</label>
+              <label className="block text-sm font-bold uppercase mb-1">Image Preprocessing</label>
+              <p className="text-xs text-gray-400 mb-2">Applied before depth/luminance analysis. Boost contrast for stronger relief.</p>
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs uppercase mb-1">Brightness: {brightness >= 0 ? "+" : ""}{brightness.toFixed(2)}</label>
                   <input type="range" min="-1" max="1" step="0.05" value={brightness}
                     onChange={(e) => setBrightness(Number(e.target.value))}
                     className="w-full accent-black" />
+                  <p className="text-xs text-gray-400">Shifts all pixels lighter or darker.</p>
                 </div>
                 <div>
                   <label className="block text-xs uppercase mb-1">Contrast: {contrast.toFixed(2)}×</label>
                   <input type="range" min="0.1" max="3" step="0.05" value={contrast}
                     onChange={(e) => setContrast(Number(e.target.value))}
                     className="w-full accent-black" />
+                  <p className="text-xs text-gray-400">Stretches bright/dark apart. Higher = more dramatic height variation.</p>
                 </div>
                 <div>
                   <label className="block text-xs uppercase mb-1">Saturation: {saturation.toFixed(2)}×</label>
                   <input type="range" min="0" max="3" step="0.05" value={saturation}
                     onChange={(e) => setSaturation(Number(e.target.value))}
                     className="w-full accent-black" />
+                  <p className="text-xs text-gray-400">0 = grayscale. Affects color cluster quality, not height.</p>
                 </div>
                 {(brightness !== 0 || contrast !== 1 || saturation !== 1) && (
                   <button type="button" onClick={() => { setBrightness(0); setContrast(1); setSaturation(1); }}
@@ -573,7 +580,8 @@ export default function Home() {
             </div>
 
             <div>
-              <label className="block text-sm font-bold uppercase mb-2">Height Curve (Gamma)</label>
+              <label className="block text-sm font-bold uppercase mb-1">Height Curve (Gamma)</label>
+              <p className="text-xs text-gray-400 mb-2">Bends the luminance → height mapping. &lt;1 lifts shadows; &gt;1 pushes brights higher.</p>
               <div className="flex items-center gap-3">
                 <input
                   type="range"
@@ -590,13 +598,14 @@ export default function Home() {
             </div>
 
             <div>
-              <label className="block text-sm font-bold uppercase mb-2">2. Resolution Mode</label>
+              <label className="block text-sm font-bold uppercase mb-1">2. Resolution Mode</label>
+              <p className="text-xs text-gray-400 mb-2">Controls how fine the grid is. More pieces = higher detail, more folding time.</p>
               <div className="flex gap-4 mb-2">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input 
-                    type="radio" 
-                    name="resMode" 
-                    value="count" 
+                  <input
+                    type="radio"
+                    name="resMode"
+                    value="count"
                     checked={resolutionMode === "count"}
                     onChange={() => setResolutionMode("count")}
                     className="accent-black"
@@ -604,10 +613,10 @@ export default function Home() {
                   <span>Piece Count</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input 
-                    type="radio" 
-                    name="resMode" 
-                    value="size" 
+                  <input
+                    type="radio"
+                    name="resMode"
+                    value="size"
                     checked={resolutionMode === "size"}
                     onChange={() => setResolutionMode("size")}
                     className="accent-black"
@@ -619,28 +628,31 @@ export default function Home() {
               {resolutionMode === "count" ? (
                 <div>
                   <label className="block text-xs uppercase mb-1">Target Pieces</label>
-                  <input 
-                    type="number" 
-                    value={targetPieces} 
+                  <input
+                    type="number"
+                    value={targetPieces}
                     onChange={(e) => setTargetPieces(Number(e.target.value))}
                     className="w-full border-2 border-black p-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
                   />
+                  <p className="text-xs text-gray-400 mt-1">Auto-sizes each hex to fill the canvas with this many pieces.</p>
                 </div>
               ) : (
                 <div>
                   <label className="block text-xs uppercase mb-1">Min Box Size (mm)</label>
-                  <input 
-                    type="number" 
-                    value={boxSizeMm} 
+                  <input
+                    type="number"
+                    value={boxSizeMm}
                     onChange={(e) => setBoxSizeMm(Number(e.target.value))}
                     className="w-full border-2 border-black p-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
                   />
+                  <p className="text-xs text-gray-400 mt-1">Diameter of each cell. Smaller = more detail. 10–20 mm is a good folding range.</p>
                 </div>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-bold uppercase mb-2">3. Prism Shape</label>
+              <label className="block text-sm font-bold uppercase mb-1">3. Prism Shape</label>
+              <p className="text-xs text-gray-400 mb-2">Cell geometry. Hex tiles densely and casts rounder shadows; square folds into clean box forms.</p>
               <div className="flex gap-4 mb-2">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="radio" name="shapeMode" value="hex"
@@ -666,12 +678,14 @@ export default function Home() {
                   onChange={(e) => setTaper(Number(e.target.value))}
                   className="w-full accent-black"
                 />
+                <p className="text-xs text-gray-400 mt-1">Narrows the top face. Higher values cast sharper directional shadows.</p>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-bold uppercase mb-2">4. Algorithm Mode</label>
-              <div className="flex flex-col gap-2 mb-2">
+              <label className="block text-sm font-bold uppercase mb-1">4. Algorithm Mode</label>
+              <p className="text-xs text-gray-400 mb-2">How pixel data maps to prism height.</p>
+              <div className="flex flex-col gap-2 mb-1">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
@@ -683,6 +697,7 @@ export default function Home() {
                   />
                   <span>Depth Estimation {shape === "hex" ? "(Sloped & Clustered)" : "(Sloped)"}</span>
                 </label>
+                <p className="text-xs text-gray-400 ml-5">AI infers foreground/background distance. First run downloads a model (~100 MB).</p>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
@@ -694,6 +709,7 @@ export default function Home() {
                   />
                   <span>Luminance (Flat {shape === "hex" ? "Hexagons" : "Squares"})</span>
                 </label>
+                <p className="text-xs text-gray-400 ml-5">Pixel brightness → height. Fast, no download. Works best on high-contrast images.</p>
               </div>
             </div>
 
@@ -883,41 +899,44 @@ export default function Home() {
                 
                 <div className="mb-4">
                   <label className="block text-xs uppercase mb-1">Explode View: {explodeFactor.toFixed(2)}</label>
-                  <input 
-                    type="range" 
+                  <input
+                    type="range"
                     min="0" max="1" step="0.05"
                     value={explodeFactor}
                     onChange={(e) => setExplodeFactor(Number(e.target.value))}
                     className="w-full accent-black"
                   />
+                  <p className="text-xs text-gray-400 mt-0.5">Fans pieces apart for gap inspection. No effect on PDF output.</p>
                 </div>
-                
+
                 <div className="mb-4">
                   <label className="block text-xs uppercase mb-1">Sun Azimuth: {sunAzimuth}°</label>
-                  <input 
-                    type="range" 
+                  <input
+                    type="range"
                     min="0" max="360" step="1"
                     value={sunAzimuth}
                     onChange={(e) => setSunAzimuth(Number(e.target.value))}
                     className="w-full accent-black"
                   />
+                  <p className="text-xs text-gray-400 mt-0.5">Rotates the light around the vertical axis.</p>
                 </div>
-                
+
                 <div>
                   <label className="block text-xs uppercase mb-1">Sun Elevation: {sunElevation}°</label>
-                  <input 
-                    type="range" 
+                  <input
+                    type="range"
                     min="10" max="90" step="1"
                     value={sunElevation}
                     onChange={(e) => setSunElevation(Number(e.target.value))}
                     className="w-full accent-black"
                   />
+                  <p className="text-xs text-gray-400 mt-0.5">Light angle above horizon. Lower = longer dramatic shadows.</p>
                 </div>
               </div>
         </div>
 
         {/* 3D Visualizer Area */}
-        <section className="flex-1 p-6 h-[600px] md:h-auto">
+        <section className="flex-1 p-6 overflow-hidden">
           {gridData && metadata ? (
             <ReliefVisualizer
               grid={gridData}

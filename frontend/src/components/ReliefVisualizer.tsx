@@ -29,14 +29,13 @@ type ReliefVisualizerProps = {
 };
 
 function PolygonPrism({ cell, offsetX, offsetZ, explodeFactor = 0, taper = 0 }: { cell: CellData; offsetX: number; offsetZ: number; explodeFactor?: number; taper?: number }) {
-  const { geometry, meshPosition } = useMemo(() => {
+  const { geometry, centroidX, centroidZ } = useMemo(() => {
     const geo = new THREE.BufferGeometry();
     const coords = cell.exterior_coords;
-    if (!coords || coords.length < 3) return { geometry: geo, meshPosition: [0, 0, 0] as [number, number, number] };
+    if (!coords || coords.length < 3) return { geometry: geo, centroidX: 0, centroidZ: 0 };
 
     const num_sides = coords.length;
 
-    // Scale slightly towards centroid for physical gap effect
     let cx = 0, cy = 0;
     for(let i = 0; i < num_sides; i++) {
         cx += coords[i][0];
@@ -57,12 +56,10 @@ function PolygonPrism({ cell, offsetX, offsetZ, explodeFactor = 0, taper = 0 }: 
     const vertices: number[] = [];
     const indices: number[] = [];
 
-    // Base vertices (index 0 to num_sides - 1), Y = 0
     for(let i = 0; i < num_sides; i++) {
         vertices.push(scaledCoords[i][0] - offsetX, 0, scaledCoords[i][1] - offsetZ);
     }
 
-    // Top vertices scaled toward centroid by taper (1.0 = fully pointed)
     const topScale = 1.0 - taper;
     for(let i = 0; i < num_sides; i++) {
         const tx = cx + (scaledCoords[i][0] - cx) * topScale;
@@ -70,45 +67,34 @@ function PolygonPrism({ cell, offsetX, offsetZ, explodeFactor = 0, taper = 0 }: 
         vertices.push(tx - offsetX, cell.top_vertices_z[i], tz - offsetZ);
     }
 
-    // Indices for Bottom Face (normals pointing down)
     for(let i = 0; i < triangles.length; i++) {
-        // Reverse winding to point down
         indices.push(triangles[i][0], triangles[i][2], triangles[i][1]);
     }
-
-    // Indices for Top Face (normals pointing up)
     for(let i = 0; i < triangles.length; i++) {
         indices.push(triangles[i][0] + num_sides, triangles[i][1] + num_sides, triangles[i][2] + num_sides);
     }
-
-    // Indices for Side Walls
     for(let i = 0; i < num_sides; i++) {
         const next = (i + 1) % num_sides;
-        const b1 = i;
-        const b2 = next;
-        const t1 = i + num_sides;
-        const t2 = next + num_sides;
-
-        // normal points out
-        indices.push(b1, t2, b2);
-        indices.push(b1, t1, t2);
+        indices.push(i, next + num_sides, next);
+        indices.push(i, i + num_sides, next + num_sides);
     }
 
     geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     geo.setIndex(indices);
     geo.computeVertexNormals();
-    
-    // Exploded view offset
-    const worldCx = cx - offsetX;
-    const worldCz = cy - offsetZ;
-    const meshPosition = [worldCx * explodeFactor, 0, worldCz * explodeFactor] as [number, number, number];
 
-    return { geometry: geo, meshPosition };
-  }, [cell, offsetX, offsetZ, explodeFactor, taper]);
+    return { geometry: geo, centroidX: cx - offsetX, centroidZ: cy - offsetZ };
+  }, [cell, offsetX, offsetZ, taper]); // explodeFactor excluded — position computed separately
+
+  const meshPosition: [number, number, number] = [
+    centroidX * explodeFactor,
+    0,
+    centroidZ * explodeFactor,
+  ];
 
   return (
     <mesh geometry={geometry} position={meshPosition} castShadow receiveShadow>
-      <meshStandardMaterial color={cell.color} roughness={0.7} side={THREE.DoubleSide} />
+      <meshStandardMaterial color={cell.color} roughness={0.8} metalness={0} side={THREE.FrontSide} />
     </mesh>
   );
 }
@@ -134,7 +120,7 @@ export default function ReliefVisualizer({ grid, metadata, explodeFactor = 0, su
 
   return (
     <div className="w-full h-full bg-gray-100 border border-black relative">
-      <Canvas shadows camera={{ position: [0, 300, 300], fov: 45, near: 0.1, far: 10000 }}>
+      <Canvas shadows={{ type: THREE.PCFShadowMap }} camera={{ position: [0, 300, 300], fov: 45, near: 0.1, far: 10000 }}>
         <ambientLight intensity={0.4} />
         <directionalLight 
           position={[sunX, sunY, sunZ]} 
