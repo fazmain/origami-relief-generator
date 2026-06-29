@@ -67,12 +67,16 @@ function PolygonPrism({ cell, offsetX, offsetZ, explodeFactor = 0, taper = 0 }: 
         vertices.push(tx - offsetX, cell.top_vertices_z[i], tz - offsetZ);
     }
 
+    // Hex verts go CW in XZ from above → triangulateShape produces CW triangles → -Y normals.
+    // Bottom cap: -Y normal (pointing down) = CW = use triangles as-is.
     for(let i = 0; i < triangles.length; i++) {
-        indices.push(triangles[i][0], triangles[i][2], triangles[i][1]);
+        indices.push(triangles[i][0], triangles[i][1], triangles[i][2]);
     }
+    // Top cap: +Y normal (pointing up) = CCW = reverse each triangle.
     for(let i = 0; i < triangles.length; i++) {
-        indices.push(triangles[i][0] + num_sides, triangles[i][1] + num_sides, triangles[i][2] + num_sides);
+        indices.push(triangles[i][0] + num_sides, triangles[i][2] + num_sides, triangles[i][1] + num_sides);
     }
+    // Side walls: (b1, t2, b2) winding gives outward normals for CW hex verts.
     for(let i = 0; i < num_sides; i++) {
         const next = (i + 1) % num_sides;
         indices.push(i, next + num_sides, next);
